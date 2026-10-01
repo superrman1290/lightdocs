@@ -1,0 +1,576 @@
+/* =========================
+   全局基础样式
+   ========================= */
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  min-width: 320px;
+  min-height: 100vh;
+}
+
+body {
+  font-family:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "Microsoft YaHei",
+    Arial,
+    sans-serif;
+
+  color: #303133;
+  background: #f5f7fa;
+
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* 去除按钮、输入框等默认字体差异 */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+/* 链接 */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* =========================
+   暗色模式基础主题
+   ========================= */
+
+html.dark-mode body {
+  color: #e5e7eb;
+  background: #111827;
+}
+
+html.dark-mode .admin-layout {
+  background: #111827;
+}
+
+html.dark-mode .admin-layout .sidebar,
+html.dark-mode .admin-layout .header {
+  background: #1f2937 !important;
+  border-color: #374151 !important;
+}
+
+html.dark-mode .admin-layout .logo-text,
+html.dark-mode .admin-layout .page-title {
+  color: #f3f4f6;
+}
+
+html.dark-mode .admin-layout .content {
+  background: #111827 !important;
+}
+
+html.dark-mode .admin-layout .sidebar-menu .el-menu-item {
+  color: #d1d5db !important;
+  background: transparent !important;
+}
+
+html.dark-mode .admin-layout .sidebar-menu,
+html.dark-mode .admin-layout .sidebar-menu.el-menu,
+html.dark-mode .admin-layout .sidebar-menu .el-menu-item,
+html.dark-mode .admin-layout .sidebar-menu .el-sub-menu__title {
+  color: #d1d5db !important;
+  background-color: #1f2937 !important;
+}
+
+html.dark-mode .admin-layout .sidebar-menu .el-menu-item:hover,
+html.dark-mode .admin-layout .sidebar-menu .el-sub-menu__title:hover {
+  color: #ffffff !important;
+  background-color: #374151 !important;
+}
+
+html.dark-mode .admin-layout .sidebar-menu .el-menu-item.is-active {
+  color: #ffffff !important;
+  background: #2563eb !important;
+}
+
+html.dark-mode .admin-layout .username,
+html.dark-mode .admin-layout .admin-user {
+  color: #d1d5db;
+}
+
+html.dark-mode .el-card,
+html.dark-mode .settings-card,
+html.dark-mode .category-card,
+html.dark-mode .image-card-container,
+html.dark-mode .recycle-card,
+html.dark-mode .section-card,
+html.dark-mode .filter-card,
+html.dark-mode .table-card {
+  color: #e5e7eb;
+  border-color: #374151;
+  background: #1f2937;
+}
+
+html.dark-mode .el-card__header,
+html.dark-mode .el-table th.el-table__cell,
+html.dark-mode .el-table tr,
+html.dark-mode .el-table td.el-table__cell {
+  color: #d1d5db;
+  border-color: #374151;
+  background: #1f2937;
+}
+
+html.dark-mode .el-input__wrapper,
+html.dark-mode .el-textarea__inner,
+html.dark-mode .el-select__wrapper {
+  background: #111827;
+  box-shadow: 0 0 0 1px #4b5563 inset;
+}
+
+html.dark-mode .el-input__inner,
+html.dark-mode .el-textarea__inner,
+html.dark-mode .el-select__selected-item {
+  color: #e5e7eb;
+}
+
+html.dark-mode .el-input__inner::placeholder,
+html.dark-mode .el-textarea__inner::placeholder {
+  color: #6b7280;
+}
+
+html.dark-mode .el-tabs__item {
+  color: #9caac0;
+}
+
+html.dark-mode .el-tabs__item.is-active {
+  color: #60a5fa;
+}
+
+html.dark-mode .el-tabs__nav-wrap::after {
+  background-color: #374151;
+}
+
+html.dark-mode .image-item,
+html.dark-mode .recycle-section,
+html.dark-mode .admin-summary {
+  border-color: #374151;
+  background: #111827;
+}
+
+/* 组件暗色覆盖 */
+
+html.dark-mode .dashboard .welcome-section h2,
+html.dark-mode .dashboard .section-header,
+html.dark-mode .dashboard .stat-number,
+html.dark-mode .dashboard .article-title,
+html.dark-mode .article-list .page-title h2,
+html.dark-mode .article-list .article-title,
+html.dark-mode .category-page .page-header h2,
+html.dark-mode .image-page .page-header h2,
+html.dark-mode .recycle-page .page-header h2,
+html.dark-mode .settings-page .page-header h2 {
+  color: #f3f4f6;
+}
+
+html.dark-mode .dashboard .welcome-section p,
+html.dark-mode .dashboard .stat-label,
+html.dark-mode .article-list .page-title p,
+html.dark-mode .category-page .page-header p,
+html.dark-mode .image-page .page-header p,
+html.dark-mode .recycle-page .page-header p,
+html.dark-mode .settings-page .page-header p {
+  color: #9caac0;
+}
+
+html.dark-mode .dashboard .stat-card,
+html.dark-mode .dashboard .section-card,
+html.dark-mode .article-list .filter-card,
+html.dark-mode .article-list .table-card,
+html.dark-mode .category-page .category-card,
+html.dark-mode .image-page .image-card-container,
+html.dark-mode .recycle-page .recycle-card,
+html.dark-mode .settings-page .settings-card {
+  border-color: #374151;
+  background: #1f2937;
+}
+
+html.dark-mode .dashboard .article-icon {
+  background: #243b5d;
+}
+
+html.dark-mode .dashboard .category-icon {
+  background: #263d2d;
+}
+
+html.dark-mode .dashboard .image-icon {
+  background: #4a3821;
+}
+
+html.dark-mode .category-page .category-root-title,
+html.dark-mode .category-page .category-name,
+html.dark-mode .image-page .image-root-title,
+html.dark-mode .image-page .image-name,
+html.dark-mode .recycle-page .section-title,
+html.dark-mode .settings-page .card-title,
+html.dark-mode .settings-page .security-heading,
+html.dark-mode .settings-page .admin-summary-row strong {
+  color: #dbeafe;
+}
+
+html.dark-mode .category-page .parent-name,
+html.dark-mode .category-page .record-count,
+html.dark-mode .image-page .record-count,
+html.dark-mode .image-page .selection-toolbar,
+html.dark-mode .image-page .image-meta,
+html.dark-mode .image-page .footer-count,
+html.dark-mode .recycle-page .selection-toolbar,
+html.dark-mode .recycle-page .footer-count,
+html.dark-mode .settings-page .upload-tip,
+html.dark-mode .settings-page .unit,
+html.dark-mode .settings-page .danger-row,
+html.dark-mode .settings-page .admin-summary-row {
+  color: #9caac0;
+}
+
+html.dark-mode .image-page .image-item {
+  border-color: #374151;
+  background: #111827;
+}
+
+html.dark-mode .recycle-page .recycle-section,
+html.dark-mode .settings-page .admin-summary {
+  border-color: #374151;
+  background: #111827;
+}
+
+html.dark-mode .recycle-page .section-heading {
+  background: #243044;
+}
+
+html.dark-mode .recycle-page .article-recycle-title strong,
+html.dark-mode .recycle-page .image-recycle-title strong {
+  color: #dbeafe;
+}
+
+html.dark-mode .recycle-page .article-recycle-title p,
+html.dark-mode .recycle-page .image-recycle-title span {
+  color: #9caac0;
+}
+
+html.dark-mode .settings-page .admin-summary-row + .admin-summary-row {
+  border-color: #374151;
+}
+
+html.dark-mode .settings-page .form-footer,
+html.dark-mode .settings-page .security-section {
+  border-color: #374151;
+}
+
+html.dark-mode .article-editor-page,
+html.dark-mode .document-editor {
+  color: #e5e7eb;
+  background: #111827;
+}
+
+html.dark-mode .article-editor-page .document-container,
+html.dark-mode .article-editor-page .document-meta,
+html.dark-mode .article-editor-page .bottom-actions,
+html.dark-mode .article-editor-page .word-count {
+  color: #d1d5db;
+  background: #1f2937;
+  border-color: #374151;
+}
+
+html.dark-mode .article-editor-page .document-title {
+  color: #f3f4f6;
+}
+
+html.dark-mode .article-editor-page .document-title::placeholder {
+  color: #6b7280;
+}
+
+html.dark-mode .article-editor-page .document-title,
+html.dark-mode .document-editor .toolbar-button,
+html.dark-mode .document-editor .toolbar-select,
+html.dark-mode .document-editor .mode-button,
+html.dark-mode .document-editor .markdown-editor,
+html.dark-mode .document-editor .visual-editor {
+  color: #e5e7eb;
+  background: #111827;
+}
+
+html.dark-mode .document-editor .editor-toolbar,
+html.dark-mode .document-editor .writing-panel,
+html.dark-mode .document-editor .toc-panel {
+  border-color: #374151;
+  background: #1f2937;
+}
+
+html.dark-mode .document-editor .ProseMirror {
+  color: #e5e7eb;
+}
+
+html.dark-mode .document-editor .toolbar-divider {
+  background: #4b5563;
+}
+
+/* Element Plus 弹窗和浮层由 body 统一承载，不能依赖局部组件样式。 */
+
+html.dark-mode .el-overlay {
+  background-color: rgb(0 0 0 / 68%);
+}
+
+html.dark-mode .el-dialog,
+html.dark-mode .el-message-box,
+html.dark-mode .el-dropdown-menu,
+html.dark-mode .el-select-dropdown,
+html.dark-mode .el-popper {
+  color: #e5e7eb;
+  border-color: #4b5563;
+  background: #1f2937;
+}
+
+html.dark-mode .el-dialog__title,
+html.dark-mode .el-message-box__title,
+html.dark-mode .el-dialog__body,
+html.dark-mode .el-message-box__message,
+html.dark-mode .el-dropdown-menu__item,
+html.dark-mode .el-select-dropdown__item {
+  color: #e5e7eb;
+}
+
+html.dark-mode .el-dialog__header,
+html.dark-mode .el-dialog__footer,
+html.dark-mode .el-message-box__header,
+html.dark-mode .el-message-box__btns {
+  border-color: #374151;
+}
+
+html.dark-mode .el-dropdown-menu__item:hover,
+html.dark-mode .el-select-dropdown__item.hover,
+html.dark-mode .el-select-dropdown__item:hover {
+  color: #ffffff;
+  background: #374151;
+}
+
+html.dark-mode .el-button:not(.el-button--primary):not(.el-button--danger) {
+  color: #d1d5db;
+  border-color: #4b5563;
+  background: #374151;
+}
+
+html.dark-mode .el-button.is-link,
+html.dark-mode .el-button.is-text {
+  border-color: transparent;
+  background: transparent;
+}
+
+html.dark-mode .el-form-item__label,
+html.dark-mode .el-checkbox__label,
+html.dark-mode .el-radio__label {
+  color: #d1d5db;
+}
+
+/* 仪表盘和文章列表标签 */
+
+html.dark-mode .dashboard .el-tag,
+html.dark-mode .article-list .el-tag {
+  color: #bfdbfe !important;
+  border-color: #4b6285 !important;
+  background: #263750 !important;
+}
+
+html.dark-mode .dashboard .el-tag.el-tag--success,
+html.dark-mode .article-list .el-tag.el-tag--success {
+  color: #86efac !important;
+  border-color: #356b4c !important;
+  background: #1f3d2c !important;
+}
+
+html.dark-mode .dashboard .el-tag.el-tag--warning,
+html.dark-mode .article-list .el-tag.el-tag--warning {
+  color: #fcd34d !important;
+  border-color: #795b25 !important;
+  background: #493918 !important;
+}
+
+html.dark-mode .dashboard .el-tag.el-tag--danger,
+html.dark-mode .article-list .el-tag.el-tag--danger {
+  color: #fca5a5 !important;
+  border-color: #7f3d46 !important;
+  background: #4a252c !important;
+}
+
+html.dark-mode .article-list .el-table__empty-block,
+html.dark-mode .article-list .el-table__body-wrapper,
+html.dark-mode .article-list .el-table__header-wrapper {
+  background: #1f2937 !important;
+}
+
+html.dark-mode .article-list .el-table__empty-text {
+  color: #94a3b8 !important;
+}
+
+/* 新建/编辑文章的统一暗色层次 */
+
+html.dark-mode .article-editor-page {
+  color: #e2e8f0 !important;
+  background: #0b1220 !important;
+}
+
+html.dark-mode .article-editor-page .editor-body {
+  background: #0b1220 !important;
+}
+
+html.dark-mode .article-editor-page .document-container {
+  background: #0f172a !important;
+}
+
+html.dark-mode .article-editor-page .document-meta {
+  color: #94a3b8 !important;
+  background: transparent !important;
+}
+
+html.dark-mode .article-editor-page .bottom-actions {
+  color: #cbd5e1 !important;
+  background: rgb(17 24 39 / 96%) !important;
+  border-color: #263750 !important;
+  box-shadow: 0 -8px 24px rgb(2 6 23 / 24%);
+}
+
+html.dark-mode .article-editor-page .word-count {
+  color: #94a3b8 !important;
+  background: transparent !important;
+}
+
+html.dark-mode .article-editor-page .document-title {
+  color: #f8fafc !important;
+  background: transparent !important;
+}
+
+html.dark-mode .article-editor-page .document-title::placeholder {
+  color: #64748b !important;
+}
+
+html.dark-mode .document-editor {
+  color: #e2e8f0 !important;
+  border: 1px solid #263750;
+  border-radius: 8px;
+  background: #111827 !important;
+  box-shadow: 0 12px 30px rgb(2 6 23 / 18%);
+}
+
+html.dark-mode .document-editor .editor-toolbar {
+  border-color: #2b3b55 !important;
+  background: #172235 !important;
+}
+
+html.dark-mode .document-editor .toolbar-button,
+html.dark-mode .document-editor .toolbar-select,
+html.dark-mode .document-editor .mode-button {
+  color: #cbd5e1 !important;
+  border-color: #3a4b68 !important;
+  background: #22304a !important;
+}
+
+html.dark-mode .document-editor .toolbar-button:hover,
+html.dark-mode .document-editor .mode-button:hover {
+  color: #f8fafc !important;
+  background: #2d4262 !important;
+}
+
+html.dark-mode .document-editor .toolbar-button.active,
+html.dark-mode .document-editor .mode-button.active {
+  color: #ffffff !important;
+  border-color: #3b82f6 !important;
+  background: #2563eb !important;
+}
+
+html.dark-mode .document-editor .toolbar-divider {
+  background: #3a4b68 !important;
+}
+
+html.dark-mode .document-editor .code-language-bar {
+  color: #94a3b8 !important;
+  border-color: #2b3b55 !important;
+  background: #141e30 !important;
+}
+
+html.dark-mode .document-editor .code-language-bar select {
+  color: #cbd5e1 !important;
+  border-color: #3a4b68 !important;
+  background: #22304a !important;
+}
+
+html.dark-mode .document-editor .writing-panel,
+html.dark-mode .document-editor .visual-editor,
+html.dark-mode .document-editor .markdown-editor {
+  background: #111827 !important;
+}
+
+html.dark-mode .document-editor .markdown-editor {
+  color: #dbeafe !important;
+  caret-color: #93c5fd;
+}
+
+html.dark-mode .document-editor .ProseMirror {
+  color: #dbeafe !important;
+}
+
+html.dark-mode .document-editor .ProseMirror h1,
+html.dark-mode .document-editor .ProseMirror h2,
+html.dark-mode .document-editor .ProseMirror h3 {
+  color: #f8fafc !important;
+}
+
+html.dark-mode .document-editor .ProseMirror blockquote {
+  color: #a7b7cf !important;
+  border-color: #4f76a8 !important;
+  background: #18253a !important;
+}
+
+html.dark-mode .document-editor .ProseMirror code {
+  color: #bfdbfe !important;
+  background: #22304a !important;
+}
+
+html.dark-mode .document-editor .ProseMirror a {
+  color: #7db4ff !important;
+}
+
+html.dark-mode .document-editor .toc-panel {
+  border-color: #2b3b55 !important;
+  background: #141e30 !important;
+}
+
+html.dark-mode .document-editor .toc-header {
+  color: #e2e8f0 !important;
+  border-color: #2b3b55 !important;
+}
+
+html.dark-mode .document-editor .toc-item {
+  color: #94a3b8 !important;
+}
+
+html.dark-mode .document-editor .toc-item:hover {
+  color: #f8fafc !important;
+  background: #22304a !important;
+}
+
+html.dark-mode .document-editor .toc-level-1 {
+  color: #dbeafe !important;
+}
+
+html.dark-mode .document-editor .toc-empty {
+  color: #64748b !important;
+}
