@@ -24,6 +24,17 @@ Apply the schema before starting the server:
 go run ./cmd/migrate -schema ../db/schema.sql
 ```
 
+Create the first administrator without storing a plaintext password in the repository:
+
+```powershell
+$env:DATABASE_URL="postgres://lightdocs:change-this-password@localhost:5432/lightdocs?sslmode=disable"
+$env:SEED_ADMIN_USERNAME="admin"
+$env:SEED_ADMIN_PASSWORD="change-this-password"
+go run ./cmd/seed
+```
+
+The seed command refuses to overwrite an existing user unless `SEED_OVERWRITE=true` is explicitly set.
+
 The server exposes `/api/v1/health` and the REST API documented in `../docs/backend-api.md`.
 
 The initial administrator is intentionally not seeded by the application. Insert a user with a bcrypt or Argon2id hash through a deployment script, never with a plaintext password.
