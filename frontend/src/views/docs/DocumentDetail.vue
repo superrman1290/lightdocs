@@ -63,6 +63,7 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, Calendar, Check, Clock, DocumentCopy, FolderOpened, House, Moon, Search, Sunny } from '@element-plus/icons-vue'
 import { articleService } from '../../services/articleService'
+import { request } from '../../services/apiClient'
 import { categoryService } from '../../services/categoryService'
 import { loadSiteSettings, siteSettings } from '../../stores/siteSettings'
 import type { Article } from '../../types/article'
@@ -113,7 +114,7 @@ ${current.content.replace(/^#\s+.*$/m, '').trim() || '文档内容正在整理�
 const blocks = computed<ContentBlock[]>(() => parseMarkdown(article.value ? fallbackMarkdown(article.value) : ''))
 const headings = computed(() => blocks.value.filter(block => block.type === 'heading') as Array<Extract<ContentBlock, { type: 'heading' }>>)
 const readingMinutes = computed(() => Math.max(1, Math.ceil(blocks.value.reduce((total, block) => total + (block.type === 'code' ? block.code.length : block.type === 'list' ? block.items.join('').length : block.type === 'heading' ? block.text.length : block.html.replace(/<[^>]+>/g, '').length), 0) / 420)))
-const loadArticle = async () => { loading.value = true; try { article.value = await articleService.getPublishedArticleBySlug(String(route.params.slug)) } finally { loading.value = false } }
+const loadArticle = async () => { loading.value = true; try { article.value = await request<Article>(`/public/docs/${encodeURIComponent(String(route.params.slug))}`) } catch { article.value = await articleService.getPublishedArticleBySlug(String(route.params.slug)) } finally { loading.value = false } }
 const loadCategories = async () => { const [categoryResult, articleResult] = await Promise.all([categoryService.getCategories(), articleService.getArticles({ status: 'published', page: 1, pageSize: 100 })]); categories.value = categoryResult; navigationArticles.value = articleResult.list; categories.value.filter(category => category.parentId === null).forEach(category => expandedGroups.add(category.id)) }
 const toggleGroup = (id: number) => expandedGroups.has(id) ? expandedGroups.delete(id) : expandedGroups.add(id)
 const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; document.documentElement.classList.toggle('dark-mode', isDarkMode.value) }

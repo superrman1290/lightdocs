@@ -1,5 +1,6 @@
 import { mockImages } from '../mock/images'
 import { recycleService } from './recycleService'
+import { request } from './apiClient'
 
 import type {
   ImageAsset,
@@ -16,6 +17,7 @@ const delay = (ms = 160) => {
 const getImages = async (
   query: ImageQuery = {},
 ): Promise<ImagePageResult> => {
+  try { const params = new URLSearchParams(); if(query.keyword) params.set('keyword',query.keyword); if(query.source) params.set('source',query.source); params.set('page',String(query.page||1)); params.set('pageSize',String(query.pageSize||15)); return await request<ImagePageResult>(`/images?${params}`) } catch (error) { if ((error as {status?:number}).status !== 404) throw error }
   await delay()
 
   let result = [...mockImages]
@@ -48,6 +50,7 @@ const getImages = async (
 }
 
 const deleteImages = async (ids: number[]): Promise<void> => {
+  try { await request<void>(`/images?ids=${ids.join(',')}`, { method: 'DELETE' }); return } catch (error) { if ((error as {status?:number}).status !== 404) throw error }
   await delay()
 
   const selectedIds = new Set(ids)
@@ -74,6 +77,7 @@ const restoreImage = async (
 }
 
 const uploadImages = async (files: File[]): Promise<ImageAsset[]> => {
+  try { const form = new FormData(); files.forEach(file => form.append('files',file)); return await request<ImageAsset[]>('/images',{method:'POST',body:form}) } catch (error) { if ((error as {status?:number}).status !== 404) throw error }
   await delay()
 
   const now = new Date()

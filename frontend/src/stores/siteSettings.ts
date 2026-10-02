@@ -1,4 +1,5 @@
 import { reactive } from 'vue'
+import { request } from '../services/apiClient'
 
 export interface SecuritySettings {
   maxLoginFailures: number
@@ -116,6 +117,10 @@ export const loadSiteSettings = () => {
       storageListenerRegistered = true
     }
 
+    void request<Partial<SiteSettings>>('/settings/site').then(remote => {
+      applySiteSettings(remote)
+    }).catch(() => undefined)
+
     const saved = window.localStorage.getItem(storageKey)
 
     if (saved) {
@@ -142,6 +147,15 @@ export const loadSiteSettings = () => {
 
 export const saveSiteSettings = (settings: SiteSettings) => {
   applySiteSettings(settings)
+
+  void request('/settings/site', {
+    method: 'PATCH',
+    body: JSON.stringify({
+      siteName: settings.siteName,
+      siteTitle: settings.siteTitle,
+      logoUrl: settings.logoUrl,
+    }),
+  }).catch(() => undefined)
 
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(

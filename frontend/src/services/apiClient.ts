@@ -28,7 +28,13 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   if (response.status === 204) return undefined as T
   const payload = await response.json().catch(() => null)
   if (!response.ok || payload?.code) {
-    if (response.status === 401) clearAccessToken()
+    if (response.status === 401) {
+      clearAccessToken()
+      sessionStorage.removeItem('lightdocs-authenticated')
+      if (location.pathname.startsWith('/admin')) {
+        location.href = `/login?redirect=${encodeURIComponent(location.pathname + location.search)}`
+      }
+    }
     throw new ApiError(payload?.message || response.statusText, response.status, payload?.code)
   }
   return payload?.data as T

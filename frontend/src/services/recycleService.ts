@@ -14,6 +14,7 @@ import type {
   RecycleItem,
   RecycleItemType,
 } from '../types/recycle'
+import { request } from './apiClient'
 
 const delay = (ms = 120) => {
   return new Promise(resolve => {
@@ -61,6 +62,7 @@ const getItems = async (
   type?: RecycleItemType,
   keyword?: string,
 ): Promise<RecycleItem[]> => {
+  try { const params = new URLSearchParams(); if(type) params.set('type',type); if(keyword) params.set('keyword',keyword); params.set('page','1'); params.set('pageSize','100'); const result=await request<{list:RecycleItem[]}>('/recycle-bin?'+params); return result.list } catch(error) { if ((error as {status?:number}).status !== 404) throw error }
   await delay()
 
   const normalizedKeyword = keyword?.trim().toLowerCase()
@@ -83,6 +85,7 @@ const getItems = async (
 }
 
 const restoreItem = async (id: string): Promise<RecycleItem> => {
+  try { return await request<RecycleItem>(`/recycle-bin/${id}`,{method:'PATCH',body:JSON.stringify({action:'restore'})}) } catch(error) { if ((error as {status?:number}).status !== 404) throw error }
   await delay()
 
   const index = mockRecycleItems.findIndex(item => item.id === id)
@@ -96,6 +99,7 @@ const restoreItem = async (id: string): Promise<RecycleItem> => {
 }
 
 const deletePermanently = async (ids: string[]): Promise<void> => {
+  try { await request<void>(`/recycle-bin?ids=${ids.join(',')}`,{method:'DELETE'}); return } catch(error) { if ((error as {status?:number}).status !== 404) throw error }
   await delay()
 
   const selectedIds = new Set(ids)
@@ -108,6 +112,7 @@ const deletePermanently = async (ids: string[]): Promise<void> => {
 }
 
 const clear = async (): Promise<void> => {
+  try { await request<void>('/recycle-bin',{method:'DELETE'}); return } catch(error) { if ((error as {status?:number}).status !== 404) throw error }
   await delay()
   mockRecycleItems.splice(0, mockRecycleItems.length)
 }
