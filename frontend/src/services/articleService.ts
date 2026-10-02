@@ -59,7 +59,7 @@ const getArticles = async (
   try {
     return await request<ArticlePageResult>(`/articles?${params.toString()}`)
   } catch (error) {
-    if ((error as { status?: number }).status !== 0 && (error as { status?: number }).status !== undefined) throw error
+    if ((error as { status?: number }).status !== 404) throw error
   }
 
   await delay()

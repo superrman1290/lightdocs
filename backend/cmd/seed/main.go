@@ -69,6 +69,16 @@ func main() {
 			log.Fatalf("seed category %q: %v", name, err)
 		}
 	}
+	var dockerID int64
+	if err := conn.QueryRow(ctx, `SELECT id FROM categories WHERE name = 'Docker' AND parent_id IS NULL LIMIT 1`).Scan(&dockerID); err == nil {
+		_, err = conn.Exec(ctx, `
+			INSERT INTO articles (title, slug, category_id, status, tags, content, summary, published_at)
+			SELECT 'Docker Compose 入门', 'docker-compose-guide', $1, 'published', ARRAY['Docker','部署'], '# Docker Compose 入门', '介绍 Docker Compose 的基本使用方法。', now()
+			WHERE NOT EXISTS (SELECT 1 FROM articles WHERE slug = 'docker-compose-guide' AND deleted_at IS NULL)`, dockerID)
+		if err != nil {
+			log.Fatalf("seed demo article: %v", err)
+		}
+	}
 }
 
 func requiredEnv(key string) string {

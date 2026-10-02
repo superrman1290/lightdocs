@@ -65,6 +65,13 @@
           </el-icon>
           <span>设置</span>
         </el-menu-item>
+
+        <el-menu-item index="/docs/docker-compose-guide">
+          <el-icon>
+            <Reading />
+          </el-icon>
+          <span>用户页面</span>
+        </el-menu-item>
       </el-menu>
     </aside>
 
@@ -156,6 +163,7 @@ import {
   Picture,
   Delete,
   Setting,
+  Reading,
   Moon,
   Sunny,
   ArrowDown,
