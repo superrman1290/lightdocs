@@ -35,19 +35,19 @@ func main() {
 	var existingID int64
 	err = conn.QueryRow(ctx, `SELECT id FROM users WHERE username = $1`, username).Scan(&existingID)
 	if err == nil && !overwrite {
-		log.Fatalf("user %q already exists; set SEED_OVERWRITE=true to update it", username)
+		fmt.Printf("user %q already exists; keeping it\n", username)
 	}
 	if err != nil && err != pgx.ErrNoRows {
 		log.Fatalf("check user: %v", err)
 	}
 
-	if err == nil {
+	if err == nil && overwrite {
 		_, err = conn.Exec(ctx, `UPDATE users SET password_hash = $1, status = 'active', updated_at = now() WHERE id = $2`, string(hash), existingID)
 		if err != nil {
 			log.Fatalf("update admin: %v", err)
 		}
 		fmt.Printf("updated admin user %q\n", username)
-	} else {
+	} else if err == pgx.ErrNoRows {
 		_, err = conn.Exec(ctx, `INSERT INTO users (username, password_hash, role, status) VALUES ($1, $2, 'admin', 'active')`, username, string(hash))
 		if err != nil {
 			log.Fatalf("create admin: %v", err)
@@ -60,6 +60,15 @@ func main() {
 		VALUES (1, '轻文档', '轻文档 - 专注技术教程的个人文档网站', '/favicon.svg')
 		ON CONFLICT (id) DO NOTHING`)
 	_, _ = conn.Exec(ctx, `INSERT INTO security_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING`)
+	for index, name := range []string{"前端开发", "后端开发", "Docker", "数据库", "项目开发"} {
+		_, err = conn.Exec(ctx, `
+			INSERT INTO categories (name, parent_id, sort_order)
+			VALUES ($1, NULL, $2)
+			ON CONFLICT DO NOTHING`, name, index+1)
+		if err != nil {
+			log.Fatalf("seed category %q: %v", name, err)
+		}
+	}
 }
 
 func requiredEnv(key string) string {

@@ -156,14 +156,26 @@ CREATE INDEX idx_articles_summary_trgm
   ON articles USING GIN (summary gin_trgm_ops)
   WHERE deleted_at IS NULL;
 
-ALTER TABLE articles
-  ADD COLUMN search_vector tsvector
-  GENERATED ALWAYS AS (
-    setweight(to_tsvector('simple', coalesce(title, '')), 'A') ||
-    setweight(to_tsvector('simple', coalesce(summary, '')), 'B') ||
-    setweight(to_tsvector('simple', coalesce(content, '')), 'C') ||
-    setweight(to_tsvector('simple', coalesce(array_to_string(tags, ' '), '')), 'B')
-  ) STORED;
+ALTER TABLE articles ADD COLUMN search_vector tsvector;
+
+CREATE OR REPLACE FUNCTION articles_search_vector_update()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  NEW.search_vector :=
+    setweight(to_tsvector('simple', coalesce(NEW.title, '')), 'A') ||
+    setweight(to_tsvector('simple', coalesce(NEW.summary, '')), 'B') ||
+    setweight(to_tsvector('simple', coalesce(NEW.content, '')), 'C') ||
+    setweight(to_tsvector('simple', coalesce(array_to_string(NEW.tags, ' '), '')), 'B');
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER trg_articles_search_vector
+  BEFORE INSERT OR UPDATE OF title, summary, content, tags ON articles
+  FOR EACH ROW
+  EXECUTE FUNCTION articles_search_vector_update();
 
 CREATE INDEX idx_articles_search_vector
   ON articles USING GIN (search_vector)
