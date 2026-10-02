@@ -42,6 +42,42 @@
             </span>
           </div>
 
+          <div class="article-fields">
+            <el-select
+              v-model="form.categoryId"
+              class="article-field category-field"
+              placeholder="选择分类"
+              :disabled="categories.length === 0"
+            >
+              <el-option
+                v-for="category in categories"
+                :key="category.id"
+                :label="category.name"
+                :value="category.id"
+              />
+            </el-select>
+
+            <el-select
+              v-model="form.tags"
+              class="article-field tags-field"
+              multiple
+              filterable
+              allow-create
+              default-first-option
+              collapse-tags
+              collapse-tags-tooltip
+              placeholder="输入标签，回车确认（每个最多 8 个字）"
+              @change="handleTagsChange"
+            >
+              <el-option
+                v-for="tag in form.tags"
+                :key="tag"
+                :label="tag"
+                :value="tag"
+              />
+            </el-select>
+          </div>
+
           <!-- =========================
                文档编辑器
           ========================== -->
@@ -220,6 +256,38 @@ const categoryName = computed(() => {
   )?.name ?? props.article?.category ?? '未分类'
 })
 
+const handleTagsChange = (tags: string[]) => {
+  const normalized = tags
+    .map(tag => tag.trim())
+    .filter(Boolean)
+
+  const invalid = normalized.find(tag => [...tag].length > 8)
+
+  if (invalid) {
+    ElMessage.warning(`标签「${invalid}」不能超过 8 个字`)
+  }
+
+  form.tags = Array.from(
+    new Set(normalized.filter(tag => [...tag].length <= 8)),
+  )
+}
+
+const validateArticleFields = () => {
+  if (!form.categoryId) {
+    ElMessage.warning('请选择文章分类')
+    return false
+  }
+
+  const invalid = form.tags.find(tag => [...tag].length > 8)
+
+  if (invalid) {
+    ElMessage.warning(`标签「${invalid}」不能超过 8 个字`)
+    return false
+  }
+
+  return true
+}
+
 const loadCategories = async () => {
   categories.value = await categoryService.getCategories()
 
@@ -328,6 +396,8 @@ const handleSaveDraft = async () => {
 
     return
   }
+
+  if (!validateArticleFields()) return
 
   saving.value = true
   saved.value = false
@@ -438,6 +508,8 @@ const handlePublish = async () => {
 
     return
   }
+
+  if (!validateArticleFields()) return
 
   /**
    * 内容不能为空
@@ -696,6 +768,41 @@ onMounted(async () => {
 .meta-divider {
   margin:
     0 8px;
+}
+
+.article-fields {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -10px 0 22px;
+}
+
+.article-field {
+  min-width: 0;
+}
+
+.category-field {
+  width: 190px;
+}
+
+.tags-field {
+  flex: 1;
+}
+
+.article-fields :deep(.el-select__wrapper) {
+  min-height: 34px;
+}
+
+@media (max-width: 620px) {
+  .article-fields {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .category-field,
+  .tags-field {
+    width: 100%;
+  }
 }
 
 
