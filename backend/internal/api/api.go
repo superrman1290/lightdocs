@@ -222,12 +222,33 @@ func (a *API) publicDoc(c *gin.Context) {
 
 func (a *API) dashboardOverview(c *gin.Context) {
 	var articles, categories, images int
-	if err := a.DB.QueryRow(c, `SELECT count(*) FROM articles WHERE deleted_at IS NULL`).Scan(&articles); err != nil { httpx.Error(c, 500, 50000, "获取仪表盘统计失败"); return }
-	if err := a.DB.QueryRow(c, `SELECT count(*) FROM categories`).Scan(&categories); err != nil { httpx.Error(c, 500, 50000, "获取仪表盘统计失败"); return }
-	if err := a.DB.QueryRow(c, `SELECT count(*) FROM images WHERE deleted_at IS NULL`).Scan(&images); err != nil { httpx.Error(c, 500, 50000, "获取仪表盘统计失败"); return }
-	rows, err := a.DB.Query(c, articleSelect+` ORDER BY a.updated_at DESC LIMIT 5`); if err != nil { httpx.Error(c, 500, 50000, "获取最新文章失败"); return }; defer rows.Close()
+	if err := a.DB.QueryRow(c, `SELECT count(*) FROM articles WHERE deleted_at IS NULL`).Scan(&articles); err != nil {
+		httpx.Error(c, 500, 50000, "获取仪表盘统计失败")
+		return
+	}
+	if err := a.DB.QueryRow(c, `SELECT count(*) FROM categories`).Scan(&categories); err != nil {
+		httpx.Error(c, 500, 50000, "获取仪表盘统计失败")
+		return
+	}
+	if err := a.DB.QueryRow(c, `SELECT count(*) FROM images WHERE deleted_at IS NULL`).Scan(&images); err != nil {
+		httpx.Error(c, 500, 50000, "获取仪表盘统计失败")
+		return
+	}
+	rows, err := a.DB.Query(c, articleSelect+` ORDER BY a.updated_at DESC LIMIT 5`)
+	if err != nil {
+		httpx.Error(c, 500, 50000, "获取最新文章失败")
+		return
+	}
+	defer rows.Close()
 	latest := []articleResponse{}
-	for rows.Next() { var item articleResponse; if err := rows.Scan(&item.ID,&item.Title,&item.Slug,&item.CategoryID,&item.Category,&item.Status,&item.Tags,&item.Content,&item.Summary,&item.CreatedAt,&item.UpdatedAt,&item.PublishedAt); err != nil { httpx.Error(c,500,50000,"读取最新文章失败"); return }; latest = append(latest,item) }
+	for rows.Next() {
+		var item articleResponse
+		if err := rows.Scan(&item.ID, &item.Title, &item.Slug, &item.CategoryID, &item.Category, &item.Status, &item.Tags, &item.Content, &item.Summary, &item.CreatedAt, &item.UpdatedAt, &item.PublishedAt); err != nil {
+			httpx.Error(c, 500, 50000, "读取最新文章失败")
+			return
+		}
+		latest = append(latest, item)
+	}
 	httpx.OK(c, 200, gin.H{"statistics": gin.H{"articles": articles, "categories": categories, "images": images}, "latestArticles": latest})
 }
 
@@ -420,11 +441,16 @@ func (a *API) deleteCategory(c *gin.Context) {
 		return
 	}
 	var articles int
-	if err := a.DB.QueryRow(c, `SELECT count(*) FROM articles WHERE category_id=$1 AND deleted_at IS NULL`, id).Scan(&articles); err != nil || articles > 0 {
-		httpx.Error(c, 409, 40901, "分类存在子分类或文章引用")
+	if err := a.DB.QueryRow(c, `SELECT count(*) FROM articles WHERE category_id=$1`, id).Scan(&articles); err != nil || articles > 0 {
+		httpx.Error(c, 409, 40901, "分类存在文章引用（包括回收站中的文章）")
 		return
 	}
-	if _, err := a.DB.Exec(c, `DELETE FROM categories WHERE id=$1`, id); err != nil {
+	result, err := a.DB.Exec(c, `DELETE FROM categories WHERE id=$1`, id)
+	if err != nil {
+		httpx.Error(c, 409, 40901, "分类存在关联数据")
+		return
+	}
+	if result.RowsAffected() == 0 {
 		httpx.Error(c, 404, 40400, "分类不存在")
 		return
 	}
@@ -611,8 +637,23 @@ func (a *API) deleteRecycle(c *gin.Context) {
 		httpx.Error(c, 400, 40000, "回收站 ID 无效")
 		return
 	}
-	if _, err = a.DB.Exec(c, `DELETE FROM recycle_bin WHERE id=$1`, id); err != nil {
+	var itemType string
+	var itemID int64
+	if err = a.DB.QueryRow(c, `SELECT item_type,item_id FROM recycle_bin WHERE id=$1`, id).Scan(&itemType, &itemID); err != nil {
 		httpx.Error(c, 404, 40400, "回收站项目不存在")
+		return
+	}
+	table := map[string]string{"article": "articles", "image": "images"}[itemType]
+	if table == "" {
+		httpx.Error(c, 422, 42200, "回收站项目类型无效")
+		return
+	}
+	if _, err = a.DB.Exec(c, "DELETE FROM "+table+" WHERE id=$1", itemID); err != nil {
+		httpx.Error(c, 409, 40902, "资源仍被引用，无法永久删除")
+		return
+	}
+	if _, err = a.DB.Exec(c, `DELETE FROM recycle_bin WHERE id=$1`, id); err != nil {
+		httpx.Error(c, 500, 50000, "删除回收站项目失败")
 		return
 	}
 	httpx.NoContent(c)

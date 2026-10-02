@@ -16,7 +16,7 @@ const delay = (ms = 100) => {
  * 当前使用 Mock 数据，后续可替换为 Go API 请求。
  */
 const getCategories = async (): Promise<Category[]> => {
-  try { return await request<Category[]>('/categories') } catch (error) { if ((error as { status?: number }).status !== 404) throw error }
+  return await request<Category[]>('/categories')
   await delay()
 
   return [...mockCategories]
@@ -25,7 +25,7 @@ const getCategories = async (): Promise<Category[]> => {
 const getCategoryById = async (
   id: number,
 ): Promise<Category | null> => {
-  try { const categories = await request<Category[]>('/categories'); return categories.find(category => category.id === id) ?? null } catch (error) { if ((error as { status?: number }).status !== 404) throw error }
+  const categories = await request<Category[]>('/categories'); return categories.find(category => category.id === id) ?? null
   await delay()
 
   return (
@@ -37,7 +37,7 @@ const getCategoryById = async (
 const createCategory = async (
   data: CategoryInput,
 ): Promise<Category> => {
-  try { return await request<Category>('/categories', { method: 'POST', body: JSON.stringify(data) }) } catch (error) { if ((error as { status?: number }).status !== 404) throw error }
+  return await request<Category>('/categories', { method: 'POST', body: JSON.stringify(data) })
   await delay()
 
   const name = data.name.trim()
@@ -61,7 +61,7 @@ const updateCategory = async (
   id: number,
   data: CategoryInput,
 ): Promise<Category> => {
-  try { return await request<Category>(`/categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) }) } catch (error) { if ((error as { status?: number }).status !== 404) throw error }
+  return await request<Category>(`/categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
   await delay()
 
   const index = mockCategories.findIndex(
@@ -88,7 +88,7 @@ const updateCategory = async (
 }
 
 const deleteCategory = async (id: number): Promise<void> => {
-  try { await request<void>(`/categories/${id}`, { method: 'DELETE' }); return } catch (error) { if ((error as { status?: number }).status !== 404) throw error }
+  await request<void>(`/categories/${id}`, { method: 'DELETE' }); return
   await delay()
 
   if (mockCategories.some(category => category.parentId === id)) {
