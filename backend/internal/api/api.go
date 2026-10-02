@@ -659,7 +659,41 @@ func (a *API) deleteRecycle(c *gin.Context) {
 	httpx.NoContent(c)
 }
 func (a *API) clearRecycle(c *gin.Context) {
-	if _, err := a.DB.Exec(c, `DELETE FROM recycle_bin`); err != nil {
+	tx, err := a.DB.Begin(c)
+	if err != nil {
+		httpx.Error(c, 500, 50000, "清空回收站失败")
+		return
+	}
+	defer tx.Rollback(c)
+	rows, err := tx.Query(c, `SELECT item_type, item_id FROM recycle_bin`)
+	if err != nil {
+		httpx.Error(c, 500, 50000, "清空回收站失败")
+		return
+	}
+	for rows.Next() {
+		var itemType string
+		var itemID int64
+		if err := rows.Scan(&itemType, &itemID); err != nil {
+			rows.Close()
+			httpx.Error(c, 500, 50000, "清空回收站失败")
+			return
+		}
+		table := map[string]string{"article": "articles", "image": "images"}[itemType]
+		if table == "" {
+			continue
+		}
+		if _, err := tx.Exec(c, "DELETE FROM "+table+" WHERE id=$1", itemID); err != nil {
+			rows.Close()
+			httpx.Error(c, 409, 40902, "存在资源引用，无法清空回收站")
+			return
+		}
+	}
+	rows.Close()
+	if _, err := tx.Exec(c, `DELETE FROM recycle_bin`); err != nil {
+		httpx.Error(c, 500, 50000, "清空回收站失败")
+		return
+	}
+	if err := tx.Commit(c); err != nil {
 		httpx.Error(c, 500, 50000, "清空回收站失败")
 		return
 	}
