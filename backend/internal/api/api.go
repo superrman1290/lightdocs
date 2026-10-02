@@ -659,13 +659,44 @@ func (a *API) deleteRecycle(c *gin.Context) {
 	httpx.NoContent(c)
 }
 func (a *API) clearRecycle(c *gin.Context) {
+	if rawIDs := strings.TrimSpace(c.Query("ids")); rawIDs != "" {
+		for _, raw := range strings.Split(rawIDs, ",") {
+			id, err := uuid.Parse(strings.TrimSpace(raw))
+			if err != nil {
+				httpx.Error(c, 400, 40000, "回收站 ID 无效")
+				return
+			}
+			if err := a.deleteRecycleRecord(c, id); err != nil {
+				httpx.Error(c, 409, 40902, err.Error())
+				return
+			}
+		}
+		httpx.NoContent(c)
+		return
+	}
 	tx, err := a.DB.Begin(c)
 	if err != nil {
 		httpx.Error(c, 500, 50000, "清空回收站失败")
 		return
 	}
 	defer tx.Rollback(c)
-	rows, err := tx.Query(c, `SELECT item_type, item_id FROM recycle_bin`)
+	ids := strings.Split(strings.TrimSpace(c.Query("ids")), ",")
+	query := `SELECT item_type, item_id FROM recycle_bin`
+	args := []any{}
+	if len(ids) > 0 && ids[0] != "" {
+		parsed := make([]uuid.UUID, 0, len(ids))
+		for _, raw := range ids {
+			parsedID, parseErr := uuid.Parse(strings.TrimSpace(raw))
+			if parseErr != nil {
+				httpx.Error(c, 400, 40000, "回收站 ID 无效")
+				return
+			}
+			parsed = append(parsed, parsedID)
+		}
+		query = `SELECT item_type, item_id FROM recycle_bin WHERE id = ANY($1)`
+		args = append(args, parsed)
+	}
+	rows, err := tx.Query(c, query, args...)
 	if err != nil {
 		httpx.Error(c, 500, 50000, "清空回收站失败")
 		return
@@ -689,7 +720,12 @@ func (a *API) clearRecycle(c *gin.Context) {
 		}
 	}
 	rows.Close()
-	if _, err := tx.Exec(c, `DELETE FROM recycle_bin`); err != nil {
+	if len(args) == 0 {
+		_, err = tx.Exec(c, `DELETE FROM recycle_bin`)
+	} else {
+		_, err = tx.Exec(c, `DELETE FROM recycle_bin WHERE id = ANY($1)`, args[0])
+	}
+	if err != nil {
 		httpx.Error(c, 500, 50000, "清空回收站失败")
 		return
 	}
@@ -698,6 +734,25 @@ func (a *API) clearRecycle(c *gin.Context) {
 		return
 	}
 	httpx.NoContent(c)
+}
+
+func (a *API) deleteRecycleRecord(c *gin.Context, id uuid.UUID) error {
+	var itemType string
+	var itemID int64
+	if err := a.DB.QueryRow(c, `SELECT item_type,item_id FROM recycle_bin WHERE id=$1`, id).Scan(&itemType, &itemID); err != nil {
+		return fmt.Errorf("回收站项目不存在")
+	}
+	table := map[string]string{"article": "articles", "image": "images"}[itemType]
+	if table == "" {
+		return fmt.Errorf("回收站项目类型无效")
+	}
+	if _, err := a.DB.Exec(c, "DELETE FROM "+table+" WHERE id=$1", itemID); err != nil {
+		return fmt.Errorf("资源仍被引用，无法永久删除: %w", err)
+	}
+	if _, err := a.DB.Exec(c, `DELETE FROM recycle_bin WHERE id=$1`, id); err != nil {
+		return fmt.Errorf("删除回收站项目失败: %w", err)
+	}
+	return nil
 }
 
 func (a *API) siteSettings(c *gin.Context) {
