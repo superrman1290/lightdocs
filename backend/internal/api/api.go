@@ -609,7 +609,8 @@ func (a *API) updateRecycle(c *gin.Context) {
 	var itemType string
 	var itemID int64
 	var snapshot []byte
-	if err = a.DB.QueryRow(c, `SELECT item_type,item_id,snapshot FROM recycle_bin WHERE id=$1`, id).Scan(&itemType, &itemID, &snapshot); err != nil {
+	var deletedAt time.Time
+	if err = a.DB.QueryRow(c, `SELECT item_type,item_id,snapshot,deleted_at FROM recycle_bin WHERE id=$1`, id).Scan(&itemType, &itemID, &snapshot, &deletedAt); err != nil {
 		httpx.Error(c, 404, 40400, "回收站项目不存在")
 		return
 	}
@@ -642,7 +643,13 @@ func (a *API) updateRecycle(c *gin.Context) {
 	}
 	var result any
 	_ = json.Unmarshal(snapshot, &result)
-	httpx.OK(c, 200, result)
+	httpx.OK(c, 200, gin.H{
+		"id":        id.String(),
+		"type":      itemType,
+		"itemId":    itemID,
+		"data":      result,
+		"deletedAt": deletedAt,
+	})
 }
 func (a *API) deleteRecycle(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
