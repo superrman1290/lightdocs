@@ -330,6 +330,8 @@ import {
   siteSettings,
 } from '../../stores/siteSettings'
 
+import { request } from '../../services/apiClient'
+
 import type {
   AdminSettings,
   SecuritySettings,
@@ -434,6 +436,11 @@ const handleSaveSecurity = () => {
   saving.value = true
 
   try {
+    void request('/settings/security', {
+      method: 'PATCH',
+      body: JSON.stringify(securityForm),
+    })
+
     saveSiteSettings({
       siteName: siteSettings.siteName,
       siteTitle: siteSettings.siteTitle,
@@ -494,6 +501,16 @@ const handleSaveAdmin = () => {
       username,
       password: adminForm.newPassword,
     }
+
+    void request('/settings/admin', {
+      method: 'PATCH',
+      body: JSON.stringify({
+        username,
+        currentPassword: adminForm.currentPassword,
+        newPassword: adminForm.newPassword,
+        confirmPassword: adminForm.confirmPassword,
+      }),
+    })
 
     saveSiteSettings({
       siteName: siteSettings.siteName,
