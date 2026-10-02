@@ -1,6 +1,7 @@
 import { mockImages } from '../mock/images'
 import { recycleService } from './recycleService'
 import { request } from './apiClient'
+import { resolveApiURL } from './apiClient'
 
 import type {
   ImageAsset,
@@ -17,7 +18,11 @@ const delay = (ms = 160) => {
 const getImages = async (
   query: ImageQuery = {},
 ): Promise<ImagePageResult> => {
-  try { const params = new URLSearchParams(); if(query.keyword) params.set('keyword',query.keyword); if(query.source) params.set('source',query.source); params.set('page',String(query.page||1)); params.set('pageSize',String(query.pageSize||15)); return await request<ImagePageResult>(`/images?${params}`) } catch (error) { if ((error as {status?:number}).status !== 404) throw error }
+  try {
+    const params = new URLSearchParams(); if(query.keyword) params.set('keyword',query.keyword); if(query.source) params.set('source',query.source); params.set('page',String(query.page||1)); params.set('pageSize',String(query.pageSize||15))
+    const result = await request<ImagePageResult>(`/images?${params}`)
+    return { ...result, list: result.list.map(image => ({ ...image, url: resolveApiURL(image.url) })) }
+  } catch (error) { if ((error as {status?:number}).status !== 404) throw error }
   await delay()
 
   let result = [...mockImages]
@@ -76,7 +81,7 @@ const restoreImage = async (
 }
 
 const uploadImages = async (files: File[]): Promise<ImageAsset[]> => {
-  try { const form = new FormData(); files.forEach(file => form.append('files',file)); return await request<ImageAsset[]>('/images',{method:'POST',body:form}) } catch (error) { if ((error as {status?:number}).status !== 404) throw error }
+  try { const form = new FormData(); files.forEach(file => form.append('files',file)); const result = await request<ImageAsset[]>('/images',{method:'POST',body:form}); return result.map(image => ({ ...image, url: resolveApiURL(image.url) })) } catch (error) { if ((error as {status?:number}).status !== 404) throw error }
   await delay()
 
   const now = new Date()

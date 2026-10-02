@@ -1,4 +1,13 @@
 const baseURL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080/api/v1'
+export const apiBaseURL = baseURL
+
+export const resolveApiURL = (value: string) => {
+  if (!value || /^https?:\/\//i.test(value) || value.startsWith('blob:') || value.startsWith('data:')) {
+    return value
+  }
+
+  return new URL(value, baseURL).toString()
+}
 
 export class ApiError extends Error {
   status: number
