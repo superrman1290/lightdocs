@@ -303,7 +303,10 @@
 
 <script setup lang="ts">
 
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { request } from '../../services/apiClient'
+import type { Article } from '../../types/article'
 
 import {
   Document,
@@ -323,62 +326,23 @@ const router = useRouter()
  *
  * 目前使用 Mock 数据
  */
-const statistics = {
-  articles: 24,
-  categories: 8,
-  images: 126,
-}
+const statistics = reactive({ articles: 0, categories: 0, images: 0 })
 
 
 /**
  * 最新文章 Mock 数据
  */
-const latestArticles = [
-  {
-    id: 1,
-    title: 'Vue 3 项目搭建指南',
-    category: '前端开发',
-    status: 'published',
-    tags: ['Vue', '前端'],
-    updatedAt: '2026-09-30 10:32',
-  },
+const latestArticles = ref<Article[]>([])
 
-  {
-    id: 2,
-    title: 'Docker Compose 入门',
-    category: 'Docker',
-    status: 'published',
-    tags: ['Docker', '部署'],
-    updatedAt: '2026-09-29 16:20',
-  },
-
-  {
-    id: 3,
-    title: 'Go Gin Web 开发',
-    category: '后端开发',
-    status: 'draft',
-    tags: ['Go', 'Gin'],
-    updatedAt: '2026-09-28 14:15',
-  },
-
-  {
-    id: 4,
-    title: 'PostgreSQL 基础使用',
-    category: '数据库',
-    status: 'published',
-    tags: ['PostgreSQL', '数据库'],
-    updatedAt: '2026-09-27 11:08',
-  },
-
-  {
-    id: 5,
-    title: 'LightDocs 项目架构设计',
-    category: '项目开发',
-    status: 'published',
-    tags: ['LightDocs', '架构'],
-    updatedAt: '2026-09-26 18:42',
-  },
-]
+onMounted(async () => {
+  try {
+    const overview = await request<{ statistics: typeof statistics; latestArticles: Article[] }>('/dashboard/overview')
+    Object.assign(statistics, overview.statistics)
+    latestArticles.value = overview.latestArticles
+  } catch {
+    latestArticles.value = []
+  }
+})
 
 
 /**
@@ -416,7 +380,7 @@ const viewAllArticles = () => {
 /**
  * 编辑文章
  */
-const editArticle = (article: any) => {
+const editArticle = (article: Article) => {
   router.push(`/admin/articles/${article.id}/edit`)
 }
 

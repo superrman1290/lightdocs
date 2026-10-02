@@ -62,6 +62,7 @@ func (a *API) Router(origins []string) *gin.Engine {
 	protected := api.Group("")
 	protected.Use(a.Auth.Middleware())
 	protected.GET("/auth/me", a.Auth.Me)
+	protected.GET("/dashboard/overview", a.dashboardOverview)
 	protected.DELETE("/auth/session", a.Auth.Logout)
 	protected.DELETE("/auth/sessions", a.Auth.RevokeAll)
 	protected.POST("/auth/re-auth", a.reauth)
@@ -217,6 +218,17 @@ func (a *API) publicDoc(c *gin.Context) {
 		return
 	}
 	httpx.OK(c, 200, item)
+}
+
+func (a *API) dashboardOverview(c *gin.Context) {
+	var articles, categories, images int
+	if err := a.DB.QueryRow(c, `SELECT count(*) FROM articles WHERE deleted_at IS NULL`).Scan(&articles); err != nil { httpx.Error(c, 500, 50000, "获取仪表盘统计失败"); return }
+	if err := a.DB.QueryRow(c, `SELECT count(*) FROM categories`).Scan(&categories); err != nil { httpx.Error(c, 500, 50000, "获取仪表盘统计失败"); return }
+	if err := a.DB.QueryRow(c, `SELECT count(*) FROM images WHERE deleted_at IS NULL`).Scan(&images); err != nil { httpx.Error(c, 500, 50000, "获取仪表盘统计失败"); return }
+	rows, err := a.DB.Query(c, articleSelect+` ORDER BY a.updated_at DESC LIMIT 5`); if err != nil { httpx.Error(c, 500, 50000, "获取最新文章失败"); return }; defer rows.Close()
+	latest := []articleResponse{}
+	for rows.Next() { var item articleResponse; if err := rows.Scan(&item.ID,&item.Title,&item.Slug,&item.CategoryID,&item.Category,&item.Status,&item.Tags,&item.Content,&item.Summary,&item.CreatedAt,&item.UpdatedAt,&item.PublishedAt); err != nil { httpx.Error(c,500,50000,"读取最新文章失败"); return }; latest = append(latest,item) }
+	httpx.OK(c, 200, gin.H{"statistics": gin.H{"articles": articles, "categories": categories, "images": images}, "latestArticles": latest})
 }
 
 func (a *API) publicSearch(c *gin.Context) { c.Set("publicSearch", true); a.listArticles(c) }
