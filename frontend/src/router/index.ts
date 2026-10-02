@@ -76,6 +76,12 @@ const router = createRouter({
     // 前台
     // =========================
     {
+      path: '/docs',
+      component: () =>
+        import('../views/docs/DocumentDetail.vue'),
+    },
+
+    {
       path: '/docs/:slug',
       component: () =>
         import('../views/docs/DocumentDetail.vue'),

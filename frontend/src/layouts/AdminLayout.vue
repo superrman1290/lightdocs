@@ -66,7 +66,7 @@
           <span>设置</span>
         </el-menu-item>
 
-        <el-menu-item index="/docs/docker-compose-guide">
+        <el-menu-item index="/docs">
           <el-icon>
             <Reading />
           </el-icon>

@@ -33,7 +33,8 @@
       </aside>
 
       <main class="document-main">
-        <div v-if="loading" class="document-loading">正在加载文档...</div>
+        <div v-if="!route.params.slug" class="document-blank" />
+        <div v-else-if="loading" class="document-loading">正在加载文档...</div>
         <div v-else-if="!article" class="document-empty"><h1>文档不存在</h1><p>这篇文档可能已被删除，或尚未公开发布。</p></div>
         <article v-else class="document-content">
           <div class="breadcrumb"><RouterLink to="/docs/vue-3-project-guide"><House :size="16" /></RouterLink><span>/</span><span>{{ article.category }}</span><span>/</span><span>{{ article.title }}</span></div>
@@ -114,7 +115,16 @@ ${current.content.replace(/^#\s+.*$/m, '').trim() || '文档内容正在整理�
 const blocks = computed<ContentBlock[]>(() => parseMarkdown(article.value ? fallbackMarkdown(article.value) : ''))
 const headings = computed(() => blocks.value.filter(block => block.type === 'heading') as Array<Extract<ContentBlock, { type: 'heading' }>>)
 const readingMinutes = computed(() => Math.max(1, Math.ceil(blocks.value.reduce((total, block) => total + (block.type === 'code' ? block.code.length : block.type === 'list' ? block.items.join('').length : block.type === 'heading' ? block.text.length : block.html.replace(/<[^>]+>/g, '').length), 0) / 420)))
-const loadArticle = async () => { loading.value = true; try { article.value = await request<Article>(`/public/docs/${encodeURIComponent(String(route.params.slug))}`) } catch { article.value = null } finally { loading.value = false } }
+const loadArticle = async () => {
+  if (!route.params.slug) {
+    article.value = null
+    loading.value = false
+    return
+  }
+
+  loading.value = true
+  try { article.value = await request<Article>(`/public/docs/${encodeURIComponent(String(route.params.slug))}`) } catch { article.value = null } finally { loading.value = false }
+}
 const loadCategories = async () => { const [categoryResult, articleResult] = await Promise.all([categoryService.getCategories(), articleService.getArticles({ status: 'published', page: 1, pageSize: 100 })]); categories.value = categoryResult; navigationArticles.value = articleResult.list; categories.value.filter(category => category.parentId === null).forEach(category => expandedGroups.add(category.id)) }
 const toggleGroup = (id: number) => expandedGroups.has(id) ? expandedGroups.delete(id) : expandedGroups.add(id)
 const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; document.documentElement.classList.toggle('dark-mode', isDarkMode.value) }
@@ -129,6 +139,10 @@ onMounted(async () => { loadSiteSettings(); isDarkMode.value = document.document
 <style scoped>
 .docs-page svg {
   flex: 0 0 auto;
+}
+
+.document-blank {
+  min-height: calc(100vh - 160px);
 }
 
 .article-body h2,
