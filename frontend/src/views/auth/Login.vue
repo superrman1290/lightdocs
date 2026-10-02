@@ -83,6 +83,7 @@ import {
   useRouter,
 } from 'vue-router'
 import { loadSiteSettings, siteSettings } from '../../stores/siteSettings'
+import { login } from '../../stores/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -105,18 +106,14 @@ const handleLogin = async () => {
   }
 
   isSubmitting.value = true
-  await new Promise((resolve) => window.setTimeout(resolve, 360))
-
-  if (
-    username.value.trim() !== siteSettings.admin.username ||
-    password.value !== siteSettings.admin.password
-  ) {
+  try {
+    await login(username.value.trim(), password.value)
+  } catch {
     errorMessage.value = '账号或密码不正确，请重试'
     isSubmitting.value = false
     return
   }
 
-  window.sessionStorage.setItem('lightdocs-authenticated', 'true')
   const redirect = typeof route.query.redirect === 'string'
     && route.query.redirect.startsWith('/admin')
     ? route.query.redirect

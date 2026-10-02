@@ -9,6 +9,7 @@ import type {
 import { mockArticles } from '../mock/articles'
 import { categoryService } from './categoryService'
 import { recycleService } from './recycleService'
+import { request } from './apiClient'
 
 
 /**
@@ -47,6 +48,19 @@ const getNow = () => new Date()
 const getArticles = async (
   query: ArticleQuery = {},
 ): Promise<ArticlePageResult> => {
+
+  const params = new URLSearchParams()
+  if (query.status) params.set('status', query.status)
+  if (query.keyword) params.set('keyword', query.keyword)
+  if (query.categoryId) params.set('categoryId', String(query.categoryId))
+  params.set('page', String(query.page || 1))
+  params.set('pageSize', String(query.pageSize || 10))
+
+  try {
+    return await request<ArticlePageResult>(`/articles?${params.toString()}`)
+  } catch (error) {
+    if ((error as { status?: number }).status !== 0 && (error as { status?: number }).status !== undefined) throw error
+  }
 
   await delay()
 
@@ -155,6 +169,12 @@ const getArticleById = async (
   id: number,
 ): Promise<Article | null> => {
 
+  try {
+    return await request<Article>(`/articles/${id}`)
+  } catch (error) {
+    if ((error as { status?: number }).status !== 404) throw error
+  }
+
   await delay()
 
   return (
@@ -173,6 +193,12 @@ const getArticleById = async (
 const createArticle = async (
   data: CreateArticleInput,
 ): Promise<Article> => {
+
+  try {
+    return await request<Article>('/articles', { method: 'POST', body: JSON.stringify(data) })
+  } catch (error) {
+    if ((error as { status?: number }).status !== 404) throw error
+  }
 
   await delay()
 
@@ -230,6 +256,12 @@ const updateArticle = async (
   data: UpdateArticleInput,
 ): Promise<Article> => {
 
+  try {
+    return await request<Article>(`/articles/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
+  } catch (error) {
+    if ((error as { status?: number }).status !== 404) throw error
+  }
+
   await delay()
 
   const index =
@@ -278,6 +310,13 @@ const updateArticle = async (
 const deleteArticle = async (
   id: number,
 ): Promise<void> => {
+
+  try {
+    await request<void>(`/articles/${id}`, { method: 'DELETE' })
+    return
+  } catch (error) {
+    if ((error as { status?: number }).status !== 404) throw error
+  }
 
   await delay()
 

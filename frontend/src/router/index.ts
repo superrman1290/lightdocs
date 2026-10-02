@@ -95,9 +95,7 @@ router.beforeEach((to) => {
   }
 
   if (to.path.startsWith('/admin')) {
-    const authenticated = sessionStorage.getItem(
-      'lightdocs-authenticated',
-    )
+    const authenticated = sessionStorage.getItem('lightdocs-access-token') || sessionStorage.getItem('lightdocs-authenticated')
 
     if (authenticated !== 'true') {
       return {
