@@ -72,7 +72,6 @@ const restoreImage = async (
     throw new Error('回收站项目类型错误')
   }
 
-  mockImages.unshift(item.data)
   return item.data
 }
 

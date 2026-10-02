@@ -622,11 +622,24 @@ func (a *API) updateRecycle(c *gin.Context) {
 		httpx.Error(c, 422, 42200, "项目类型无效")
 		return
 	}
-	if _, err = a.DB.Exec(c, "UPDATE "+table+" SET deleted_at=NULL,deleted_by=NULL WHERE id=$1", itemID); err != nil {
+	tx, err := a.DB.Begin(c)
+	if err != nil {
+		httpx.Error(c, 500, 50000, "恢复失败")
+		return
+	}
+	defer tx.Rollback(c)
+	if _, err = tx.Exec(c, "UPDATE "+table+" SET deleted_at=NULL,deleted_by=NULL WHERE id=$1", itemID); err != nil {
 		httpx.Error(c, 409, 40903, "恢复失败")
 		return
 	}
-	_, _ = a.DB.Exec(c, `DELETE FROM recycle_bin WHERE id=$1`, id)
+	if _, err = tx.Exec(c, `DELETE FROM recycle_bin WHERE id=$1`, id); err != nil {
+		httpx.Error(c, 500, 50000, "恢复失败，回收站记录未删除")
+		return
+	}
+	if err = tx.Commit(c); err != nil {
+		httpx.Error(c, 500, 50000, "恢复失败")
+		return
+	}
 	var result any
 	_ = json.Unmarshal(snapshot, &result)
 	httpx.OK(c, 200, result)

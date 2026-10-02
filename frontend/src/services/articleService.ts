@@ -357,7 +357,6 @@ const restoreArticle = async (
     throw new Error('回收站项目类型错误')
   }
 
-  mockArticles.unshift(item.data)
   return item.data
 }
 
