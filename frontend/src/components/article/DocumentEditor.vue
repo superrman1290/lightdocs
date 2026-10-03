@@ -352,6 +352,7 @@ import { common, createLowlight } from 'lowlight'
 
 import SlashCommand from '../../extensions/slashCommand'
 import { imageService } from '../../services/imageService'
+import { resolveApiURL } from '../../services/apiClient'
 import type { ImageAsset } from '../../types/image'
 
 const lowlight = createLowlight(common)
@@ -383,6 +384,18 @@ const emit = defineEmits<{
 const mode = ref<'visual' | 'markdown'>('visual')
 
 const markdownContent = ref(props.modelValue || '')
+
+/**
+ * 文章正文统一保存为 Markdown。图片可能来自旧数据中的相对路径，
+ * 进入编辑器前将其解析为 Go API 的可访问地址，避免被浏览器当作
+ * 前端站点相对路径。
+ */
+const normalizeMarkdownImageSources = (markdown: string) => {
+  return markdown.replace(
+    /(!\[[^\]]*\]\()([^\s)]+)(\))/g,
+    (_match, prefix: string, source: string, suffix: string) => `${prefix}${resolveApiURL(source)}${suffix}`,
+  )
+}
 
 /* =========================
    代码语言
@@ -428,7 +441,11 @@ let imageSelectionPosition: number | null = null
 const editor = new Editor({
   editable: !props.readonly,
 
-  content: props.modelValue || '',
+  content: normalizeMarkdownImageSources(props.modelValue || ''),
+
+  // Article content is stored as Markdown. Without this option, the initial
+  // edit view treats ![](url) as literal text instead of an image node.
+  contentType: 'markdown',
 
   editorProps: {
     handlePaste: (_view, event) => {
@@ -782,7 +799,7 @@ function switchToVisual() {
 
   nextTick(() => {
     editor.commands.setContent(
-      markdownContent.value || '',
+      normalizeMarkdownImageSources(markdownContent.value || ''),
       {
         contentType: 'markdown',
         emitUpdate: false,
@@ -820,7 +837,7 @@ watch(
     }
 
     editor.commands.setContent(
-      markdownContent.value,
+      normalizeMarkdownImageSources(markdownContent.value),
       {
         contentType: 'markdown',
         emitUpdate: false,
