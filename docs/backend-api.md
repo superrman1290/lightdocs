@@ -372,7 +372,7 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 
 `DELETE /images?ids=1,2,3`
 
-图片写入 `deleted_at` 并进入回收站。只要图片存在 `article_images` 引用，就不允许从图片页面删除，接口返回 `40902`；文章永久删除后关系由外键级联清理。
+只有未被 `article_images` 引用的图片，才会写入 `deleted_at` 并进入回收站。只要存在引用，图片页面删除请求直接返回 `40902`，不会创建回收站记录。回收站中的图片永久删除同样受 `article_images` 外键约束保护；引用关系会在对应文章永久删除后由外键级联清理。
 
 ## 8. 回收站
 
@@ -421,11 +421,11 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 
 ### 8.3 永久删除
 
-`DELETE /recycle-bin/:id`：永久删除单条。
+`DELETE /recycle-bin/:id`：永久删除单条。若目标是仍被 `article_images` 引用的图片，返回 `40902`，必须先永久删除引用文章或移除文章中的图片引用。
 
 `DELETE /recycle-bin?ids=article-1-1727685120000,image-2-1727685120001`
 
-`DELETE /recycle-bin`：清空回收站。该操作不可恢复，建议服务端要求二次确认标记 `X-Confirm-Destructive: true`，并记录审计日志。
+`DELETE /recycle-bin`：清空回收站。若其中包含仍被 `article_images` 引用的图片，操作返回 `40902`，无法删除的图片记录会保留；该操作不可恢复，建议服务端要求二次确认标记 `X-Confirm-Destructive: true`，并记录审计日志。
 
 ## 9. 站点与安全设置
 
