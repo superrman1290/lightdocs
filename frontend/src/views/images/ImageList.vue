@@ -121,6 +121,7 @@
             <el-checkbox
               class="image-checkbox"
               :model-value="isSelected(image.id)"
+              :disabled="image.referenced"
               @click.stop
               @change="toggleImage(image.id)"
             />
@@ -146,8 +147,9 @@
                   <el-dropdown-item
                     command="delete"
                     divided
+                    :disabled="image.referenced"
                   >
-                    删除
+                    {{ image.referenced ? '文章引用中' : '删除' }}
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -259,20 +261,22 @@ const uploadInput = ref<HTMLInputElement | null>(null)
 const previewVisible = ref(false)
 const previewImage = ref<ImageAsset | null>(null)
 
-const visibleIds = computed(() => images.value.map(image => image.id))
+const visibleDeletableIds = computed(() => images.value
+  .filter(image => !image.referenced)
+  .map(image => image.id))
 
 const allVisibleSelected = computed(() => {
-  return visibleIds.value.length > 0 && visibleIds.value.every(
+  return visibleDeletableIds.value.length > 0 && visibleDeletableIds.value.every(
     id => selectedIds.value.includes(id),
   )
 })
 
 const someVisibleSelected = computed(() => {
-  const selectedCount = visibleIds.value.filter(
+  const selectedCount = visibleDeletableIds.value.filter(
     id => selectedIds.value.includes(id),
   ).length
 
-  return selectedCount > 0 && selectedCount < visibleIds.value.length
+  return selectedCount > 0 && selectedCount < visibleDeletableIds.value.length
 })
 
 const loadImages = async () => {
@@ -323,17 +327,26 @@ const toggleSelectAll = (value: string | number | boolean) => {
 
   if (shouldSelect) {
     selectedIds.value = Array.from(
-      new Set([...selectedIds.value, ...visibleIds.value]),
+      new Set([...selectedIds.value, ...visibleDeletableIds.value]),
     )
   } else {
     selectedIds.value = selectedIds.value.filter(
-      id => !visibleIds.value.includes(id),
+      id => !visibleDeletableIds.value.includes(id),
     )
   }
 }
 
 const deleteImages = async (ids: number[]) => {
-  await imageService.deleteImages(ids)
+  const deletableIds = ids.filter(id => {
+    return !images.value.find(image => image.id === id)?.referenced
+  })
+
+  if (deletableIds.length === 0) {
+    ElMessage.warning('图片正在被文章引用，请先移除文章中的图片')
+    return
+  }
+
+  await imageService.deleteImages(deletableIds)
   selectedIds.value = []
   await loadImages()
 }
@@ -361,6 +374,11 @@ const handleBatchDelete = async () => {
 }
 
 const handleSingleDelete = async (image: ImageAsset) => {
+  if (image.referenced) {
+    ElMessage.warning('图片正在被文章引用，请先移除文章中的图片')
+    return
+  }
+
   try {
     await ElMessageBox.confirm(
       `确定要删除图片「${image.name}」吗？`,

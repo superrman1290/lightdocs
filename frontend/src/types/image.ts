@@ -12,6 +12,7 @@ export interface ImageAsset {
   height?: number
   source: ImageSource
   createdAt: string
+  referenced?: boolean
 }
 
 export interface ImageQuery {

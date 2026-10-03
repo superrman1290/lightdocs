@@ -478,7 +478,7 @@ func (a *API) listImages(c *gin.Context) {
 		return
 	}
 	args = append(args, size, (page-1)*size)
-	rows, err := a.DB.Query(c, "SELECT id,name,url,ceil(size_bytes/1024.0),size_bytes,mime_type,storage_key,width,height,source,created_at FROM images WHERE"+where+" ORDER BY created_at DESC LIMIT $"+strconv.Itoa(len(args)-1)+" OFFSET $"+strconv.Itoa(len(args)), args...)
+	rows, err := a.DB.Query(c, "SELECT i.id,i.name,i.url,ceil(i.size_bytes/1024.0),i.size_bytes,i.mime_type,i.storage_key,i.width,i.height,i.source,i.created_at,EXISTS (SELECT 1 FROM articles a WHERE a.deleted_at IS NULL AND (a.content LIKE '%' || i.url || '%' OR a.content LIKE '%' || i.storage_key || '%')) FROM images i WHERE"+where+" ORDER BY i.created_at DESC LIMIT $"+strconv.Itoa(len(args)-1)+" OFFSET $"+strconv.Itoa(len(args)), args...)
 	if err != nil {
 		httpx.Error(c, 500, 50000, "查询图片失败")
 		return
@@ -492,11 +492,12 @@ func (a *API) listImages(c *gin.Context) {
 		var sizeBytes int64
 		var width, height *int
 		var created time.Time
-		if rows.Scan(&id, &name, &url, &size, &sizeBytes, &mime, &key, &width, &height, &sourceValue, &created) != nil {
+		var referenced bool
+		if rows.Scan(&id, &name, &url, &size, &sizeBytes, &mime, &key, &width, &height, &sourceValue, &created, &referenced) != nil {
 			httpx.Error(c, 500, 50000, "读取图片失败")
 			return
 		}
-		list = append(list, gin.H{"id": id, "name": name, "url": url, "size": size, "sizeBytes": sizeBytes, "mimeType": mime, "storageKey": key, "width": width, "height": height, "source": sourceValue, "createdAt": created})
+		list = append(list, gin.H{"id": id, "name": name, "url": url, "size": size, "sizeBytes": sizeBytes, "mimeType": mime, "storageKey": key, "width": width, "height": height, "source": sourceValue, "createdAt": created, "referenced": referenced})
 	}
 	httpx.OK(c, 200, gin.H{"list": list, "total": total, "page": page, "pageSize": size})
 }
@@ -540,6 +541,21 @@ func (a *API) deleteImages(c *gin.Context) {
 		id, err := strconv.ParseInt(raw, 10, 64)
 		if err != nil {
 			continue
+		}
+		var referenced bool
+		if err = a.DB.QueryRow(c, `SELECT EXISTS (
+			SELECT 1
+			FROM images i
+			JOIN articles a ON a.deleted_at IS NULL
+			WHERE i.id=$1 AND i.deleted_at IS NULL
+			  AND (a.content LIKE '%' || i.url || '%' OR a.content LIKE '%' || i.storage_key || '%')
+		)`, id).Scan(&referenced); err != nil {
+			httpx.Error(c, 500, 50000, "删除图片失败")
+			return
+		}
+		if referenced {
+			httpx.Error(c, 409, 40902, "图片正在被文章引用，请先移除文章中的图片")
+			return
 		}
 		var snapshot []byte
 		if err = a.DB.QueryRow(c, `SELECT jsonb_build_object('id',id,'name',name,'url',url,'sizeBytes',size_bytes,'mimeType',mime_type,'storageKey',storage_key,'source',source,'width',width,'height',height,'createdAt',created_at) FROM images WHERE id=$1 AND deleted_at IS NULL`, id).Scan(&snapshot); err != nil {
