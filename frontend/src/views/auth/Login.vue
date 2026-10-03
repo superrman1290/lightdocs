@@ -84,6 +84,7 @@ import {
 } from 'vue-router'
 import { loadSiteSettings, siteSettings } from '../../stores/siteSettings'
 import { login } from '../../stores/auth'
+import { ApiError } from '../../services/apiClient'
 
 const router = useRouter()
 const route = useRoute()
@@ -108,8 +109,10 @@ const handleLogin = async () => {
   isSubmitting.value = true
   try {
     await login(username.value.trim(), password.value)
-  } catch {
-    errorMessage.value = '账号或密码不正确，请重试'
+  } catch (error) {
+    errorMessage.value = error instanceof ApiError && error.status === 423
+      ? '登录失败次数过多，账号已暂时锁定，请稍后重试'
+      : '账号或密码不正确，请重试'
     isSubmitting.value = false
     return
   }

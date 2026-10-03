@@ -39,7 +39,60 @@ func (s *Service) Login(c *gin.Context, username, password string, remember bool
 	err := s.DB.QueryRow(ctx, `
 		SELECT id, password_hash, role, status, failed_login_count, locked_until
 		FROM users WHERE username = $1`, username).Scan(&id, &hash, &role, &status, &failed, &lockedUntil)
-	if err != nil || status != "active" || (lockedUntil != nil && lockedUntil.After(time.Now())) || bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+	if err != nil || status != "active" {
+		httpx.Error(c, http.StatusUnauthorized, 40101, "账号或密码不正确")
+		return
+	}
+
+	now := time.Now()
+	if lockedUntil != nil && lockedUntil.After(now) {
+		httpx.Error(c, http.StatusLocked, 40102, "账号已锁定，请稍后重试")
+		return
+	}
+
+	// A lock is temporary. Once it has elapsed, start a fresh failure window.
+	if lockedUntil != nil {
+		if _, err = s.DB.Exec(ctx, `UPDATE users SET failed_login_count = 0, locked_until = NULL, updated_at = now() WHERE id = $1`, id); err != nil {
+			httpx.Error(c, http.StatusInternalServerError, 50000, "登录失败")
+			return
+		}
+		failed = 0
+		lockedUntil = nil
+	}
+
+	var maxFailures, lockMinutes int
+	if err = s.DB.QueryRow(ctx, `SELECT max_login_failures, lock_minutes FROM security_settings WHERE id = 1`).Scan(&maxFailures, &lockMinutes); err != nil {
+		httpx.Error(c, http.StatusInternalServerError, 50000, "读取登录安全设置失败")
+		return
+	}
+	if maxFailures < 1 {
+		maxFailures = 5
+	}
+	if lockMinutes < 1 {
+		lockMinutes = 15
+	}
+
+	if bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) != nil {
+		var nextFailed int
+		var nextLockedUntil *time.Time
+		err = s.DB.QueryRow(ctx, `
+			UPDATE users
+			SET failed_login_count = failed_login_count + 1,
+			    locked_until = CASE
+				  WHEN failed_login_count + 1 >= $1 THEN now() + make_interval(mins => $2)
+				  ELSE NULL
+			    END,
+			    updated_at = now()
+			WHERE id = $3
+			RETURNING failed_login_count, locked_until`, maxFailures, lockMinutes, id).Scan(&nextFailed, &nextLockedUntil)
+		if err != nil {
+			httpx.Error(c, http.StatusInternalServerError, 50000, "登录失败")
+			return
+		}
+		if nextFailed >= maxFailures && nextLockedUntil != nil {
+			httpx.Error(c, http.StatusLocked, 40102, "账号已锁定，请稍后重试")
+			return
+		}
 		httpx.Error(c, http.StatusUnauthorized, 40101, "账号或密码不正确")
 		return
 	}
