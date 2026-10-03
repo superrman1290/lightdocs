@@ -294,6 +294,35 @@
         </div>
       </aside>
     </div>
+
+    <el-dialog
+      v-model="imagePickerVisible"
+      title="选择图片"
+      width="760px"
+      append-to-body
+    >
+      <div
+        v-loading="imagePickerLoading"
+        class="image-picker"
+      >
+        <button
+          v-for="image in imageOptions"
+          :key="image.id"
+          class="image-picker-item"
+          @click="selectImage(image.url)"
+        >
+          <img
+            :src="image.url"
+            :alt="image.name"
+          />
+          <span>{{ image.name }}</span>
+        </button>
+        <el-empty
+          v-if="!imagePickerLoading && imageOptions.length === 0"
+          description="暂无图片，请先在图片菜单上传"
+        />
+      </div>
+    </el-dialog>
   </div>
 </template>
 
@@ -322,6 +351,8 @@ import Highlight from '@tiptap/extension-highlight'
 import { common, createLowlight } from 'lowlight'
 
 import SlashCommand from '../../extensions/slashCommand'
+import { imageService } from '../../services/imageService'
+import type { ImageAsset } from '../../types/image'
 
 const lowlight = createLowlight(common)
 
@@ -385,6 +416,10 @@ interface TocItem {
 }
 
 const tocItems = ref<TocItem[]>([])
+const imagePickerVisible = ref(false)
+const imagePickerLoading = ref(false)
+const imageOptions = ref<ImageAsset[]>([])
+let imageSelectionPosition: number | null = null
 
 /* =========================
    编辑器
@@ -394,6 +429,20 @@ const editor = new Editor({
   editable: !props.readonly,
 
   content: props.modelValue || '',
+
+  editorProps: {
+    handlePaste: (_view, event) => {
+      const files = Array.from(event.clipboardData?.files ?? [])
+        .filter(file => file.type.startsWith('image/'))
+
+      if (files.length === 0) {
+        return false
+      }
+
+      void uploadPastedImages(files)
+      return true
+    },
+  },
 
   extensions: [
     StarterKit.configure({
@@ -600,19 +649,44 @@ function insertImage() {
     return
   }
 
-  const url = window.prompt('请输入图片 URL')
+  imageSelectionPosition = editor.state.selection.from
+  imagePickerVisible.value = true
+  imagePickerLoading.value = true
 
-  if (!url) {
-    return
+  void imageService.getImages({ page: 1, pageSize: 100 })
+    .then(result => {
+      imageOptions.value = result.list
+    })
+    .catch(() => {
+      imageOptions.value = []
+    })
+    .finally(() => {
+      imagePickerLoading.value = false
+    })
+}
+
+const selectImage = (url: string) => {
+  imagePickerVisible.value = false
+  const chain = editor.chain().focus()
+
+  if (imageSelectionPosition !== null) {
+    chain.setTextSelection(imageSelectionPosition)
   }
 
-  editor
-    .chain()
-    .focus()
-    .setImage({
-      src: url,
-    })
-    .run()
+  chain.setImage({ src: url }).run()
+  imageSelectionPosition = null
+}
+
+const uploadPastedImages = async (files: File[]) => {
+  try {
+    const uploaded = await imageService.uploadImages(files)
+
+    for (const image of uploaded) {
+      editor.chain().focus().setImage({ src: image.url }).run()
+    }
+  } catch (error) {
+    console.error('粘贴图片上传失败：', error)
+  }
 }
 
 /* =========================
@@ -796,6 +870,51 @@ defineExpose({
   flex-direction: column;
   background: #ffffff;
   overflow: hidden;
+}
+
+.image-picker {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  min-height: 120px;
+}
+
+.image-picker-item {
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid #dbe4ef;
+  border-radius: 8px;
+  background: #ffffff;
+  cursor: pointer;
+  text-align: left;
+}
+
+.image-picker-item:hover {
+  border-color: #409eff;
+  box-shadow: 0 4px 14px rgb(64 158 255 / 20%);
+}
+
+.image-picker-item img {
+  display: block;
+  width: 100%;
+  height: 110px;
+  object-fit: cover;
+}
+
+.image-picker-item span {
+  display: block;
+  overflow: hidden;
+  padding: 8px;
+  color: #475569;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .image-picker {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 /* =========================
