@@ -324,13 +324,13 @@ const router = useRouter()
 /**
  * Dashboard 统计数据
  *
- * 目前使用 Mock 数据
+ * 通过后端仪表盘接口获取数据
  */
 const statistics = reactive({ articles: 0, categories: 0, images: 0 })
 
 
 /**
- * 最新文章 Mock 数据
+ * 后端返回的最新文章
  */
 const latestArticles = ref<Article[]>([])
 

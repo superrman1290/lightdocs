@@ -85,7 +85,7 @@ type ContentBlock = { id: string; type: 'heading'; level: number; text: string }
 const route = useRoute(); const router = useRouter(); const article = ref<Article | null>(null); const loading = ref(true); const searchKeyword = ref(''); const isDarkMode = ref(false); const copiedCode = ref(''); const categories = ref<Awaited<ReturnType<typeof categoryService.getCategories>>>([]); const navigationArticles = ref<Article[]>([]); const expandedGroups = reactive(new Set<number>())
 const categoryGroups = computed<CategoryGroup[]>(() => categories.value.filter(category => category.parentId === null).map(root => ({ id: root.id, name: root.name, children: navigationArticles.value.filter(article => article.categoryId === root.id).map(article => ({ id: article.id, slug: article.slug, title: article.title })) })))
 // 游客页只展示管理员实际保存的正文，不再为文章拼接概览、正文内容
-// 和总结等演示文本。文章为空时保持空白，不使用 Mock 或兜底文章内容。
+// 和总结等演示文本。文章为空时保持空白。
 const blocks = computed<ContentBlock[]>(() => parseMarkdown(article.value?.content ?? ''))
 const headings = computed(() => blocks.value.filter(block => block.type === 'heading') as Array<Extract<ContentBlock, { type: 'heading' }>>)
 const readingMinutes = computed(() => Math.max(1, Math.ceil(blocks.value.reduce((total, block) => total + (block.type === 'code' ? block.code.length : block.type === 'list' ? block.items.join('').length : block.type === 'heading' ? block.text.length : block.type === 'image' ? 100 : block.html.replace(/<[^>]+>/g, '').length), 0) / 420)))

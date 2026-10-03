@@ -1,6 +1,6 @@
 # LightDocs
 
-LightDocs 是一个基于 Vue 3、TypeScript 和 Vite 的轻量文档管理后台。当前前端使用 Mock Service 运行，后端接口和数据库设计已整理完毕，便于替换为 Go + Gin + PostgreSQL 实现。
+LightDocs 是一个基于 Vue 3、TypeScript、Go、Gin 和 PostgreSQL 的轻量文档管理系统。前端业务数据统一通过后端 RESTful API 读写。
 
 ## 项目结构
 
@@ -8,7 +8,7 @@ LightDocs 是一个基于 Vue 3、TypeScript 和 Vite 的轻量文档管理后�
 lightdocs/
 ├── frontend/
 │   └── src/       # Vue 3 前端源码
-├── backend/       # Go 后端（待实现）
+├── backend/       # Go + Gin 后端
 ├── public/
 ├── db/
 ├── docs/

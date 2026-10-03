@@ -482,7 +482,7 @@ const loadCategories = async () => {
  *     ↓
  * articleService
  *     ↓
- * Mock
+ * API
  *
  * 未来：
  *

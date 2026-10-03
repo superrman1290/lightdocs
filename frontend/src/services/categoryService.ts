@@ -1,109 +1,25 @@
-import { mockCategories } from '../mock/categories'
-
-import type { Category } from '../types/category'
-import type { CategoryInput } from '../types/category'
+import type { Category, CategoryInput } from '../types/category'
 import { request } from './apiClient'
 
-const delay = (ms = 100) => {
-  return new Promise(resolve => {
-    setTimeout(resolve, ms)
-  })
+const getCategories = () => request<Category[]>('/categories')
+
+const getCategoryById = async (id: number): Promise<Category | null> => {
+  const categories = await getCategories()
+  return categories.find(category => category.id === id) ?? null
 }
 
-/**
- * 分类数据访问层。
- *
- * 当前使用 Mock 数据，后续可替换为 Go API 请求。
- */
-const getCategories = async (): Promise<Category[]> => {
-  return await request<Category[]>('/categories')
-  await delay()
+const createCategory = (data: CategoryInput) => request<Category>('/categories', {
+  method: 'POST',
+  body: JSON.stringify(data),
+})
 
-  return [...mockCategories]
-}
-
-const getCategoryById = async (
-  id: number,
-): Promise<Category | null> => {
-  const categories = await request<Category[]>('/categories'); return categories.find(category => category.id === id) ?? null
-  await delay()
-
-  return (
-    mockCategories.find(category => category.id === id)
-    ?? null
-  )
-}
-
-const createCategory = async (
-  data: CategoryInput,
-): Promise<Category> => {
-  return await request<Category>('/categories', { method: 'POST', body: JSON.stringify(data) })
-  await delay()
-
-  const name = data.name.trim()
-
-  if (!name) {
-    throw new Error('分类名称不能为空')
-  }
-
-  const category: Category = {
-    ...data,
-    name,
-    id: Math.max(0, ...mockCategories.map(item => item.id)) + 1,
-  }
-
-  mockCategories.push(category)
-
-  return category
-}
-
-const updateCategory = async (
-  id: number,
-  data: CategoryInput,
-): Promise<Category> => {
-  return await request<Category>(`/categories/${id}`, { method: 'PATCH', body: JSON.stringify(data) })
-  await delay()
-
-  const index = mockCategories.findIndex(
-    category => category.id === id,
-  )
-
-  if (index === -1) {
-    throw new Error('分类不存在')
-  }
-
-  const name = data.name.trim()
-
-  if (!name) {
-    throw new Error('分类名称不能为空')
-  }
-
-  mockCategories[index] = {
-    ...mockCategories[index],
-    ...data,
-    name,
-  }
-
-  return mockCategories[index]
-}
+const updateCategory = (id: number, data: CategoryInput) => request<Category>(`/categories/${id}`, {
+  method: 'PATCH',
+  body: JSON.stringify(data),
+})
 
 const deleteCategory = async (id: number): Promise<void> => {
-  await request<void>(`/categories/${id}`, { method: 'DELETE' }); return
-  await delay()
-
-  if (mockCategories.some(category => category.parentId === id)) {
-    throw new Error('请先删除或移动子分类')
-  }
-
-  const index = mockCategories.findIndex(
-    category => category.id === id,
-  )
-
-  if (index === -1) {
-    throw new Error('分类不存在')
-  }
-
-  mockCategories.splice(index, 1)
+  await request<void>(`/categories/${id}`, { method: 'DELETE' })
 }
 
 export const categoryService = {

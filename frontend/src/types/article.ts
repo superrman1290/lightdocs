@@ -31,7 +31,7 @@ export interface Article {
   /**
    * 分类名称
    *
-   * 当前 Mock 阶段方便直接显示
+   * 接口返回的分类名称，方便列表直接显示
    */
   category: string
 
