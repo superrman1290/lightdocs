@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -14,7 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
+	"github.com/gabriel-vasile/mimetype"
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -28,18 +31,20 @@ import (
 )
 
 type API struct {
-	DB              *pgxpool.Pool
-	Auth            *auth.Service
-	MaxUploadBytes  int64
-	UploadDirectory string
+	DB                     *pgxpool.Pool
+	Auth                   *auth.Service
+	MaxUploadBytes         int64
+	MaxArticleContentBytes int64
+	UploadDirectory        string
 }
 
 func New(cfg config.Config, db *pgxpool.Pool) *API {
 	return &API{
-		DB:              db,
-		Auth:            &auth.Service{DB: db, AccessTokenTTL: time.Duration(cfg.AccessTokenTTLMin) * time.Minute, RememberSessionDays: cfg.RememberSessionDays},
-		MaxUploadBytes:  cfg.MaxUploadBytes,
-		UploadDirectory: "uploads",
+		DB:                     db,
+		Auth:                   &auth.Service{DB: db, AccessTokenTTL: time.Duration(cfg.AccessTokenTTLMin) * time.Minute, RememberSessionDays: cfg.RememberSessionDays},
+		MaxUploadBytes:         cfg.MaxUploadBytes,
+		MaxArticleContentBytes: cfg.MaxArticleContentBytes,
+		UploadDirectory:        "uploads",
 	}
 }
 
@@ -190,6 +195,58 @@ func syncArticleImages(ctx context.Context, tx pgx.Tx, articleID int64, content 
 	return rows.Err()
 }
 
+func normalizeAndValidateTags(tags []string) ([]string, error) {
+	result := make([]string, 0, len(tags))
+	seen := make(map[string]struct{}, len(tags))
+	for _, raw := range tags {
+		tag := strings.TrimSpace(raw)
+		if tag == "" {
+			continue
+		}
+		if utf8.RuneCountInString(tag) > 8 {
+			return nil, fmt.Errorf("标签「%s」不能超过 8 个字符", tag)
+		}
+		if _, exists := seen[tag]; exists {
+			continue
+		}
+		seen[tag] = struct{}{}
+		result = append(result, tag)
+	}
+	return result, nil
+}
+
+func (a *API) validateArticleContent(content string) error {
+	if int64(len([]byte(content))) > a.MaxArticleContentBytes {
+		return fmt.Errorf("正文不能超过 %d MiB", a.MaxArticleContentBytes/(1024*1024))
+	}
+	return nil
+}
+
+var allowedImageMIMEs = map[string]struct{}{
+	"image/jpeg":    {},
+	"image/png":     {},
+	"image/webp":    {},
+	"image/gif":     {},
+	"image/svg+xml": {},
+}
+
+func validateImageFile(header *multipart.FileHeader) (string, error) {
+	file, err := header.Open()
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	detectedMIME, err := mimetype.DetectReader(file)
+	if err != nil {
+		return "", err
+	}
+	detected := detectedMIME.String()
+	if _, ok := allowedImageMIMEs[detected]; !ok {
+		return "", errors.New("仅支持 JPEG、PNG、WebP、GIF 或 SVG 图片")
+	}
+	return detected, nil
+}
+
 func scanArticle(row pgx.Row) (articleResponse, error) {
 	var item articleResponse
 	err := row.Scan(&item.ID, &item.Title, &item.Slug, &item.CategoryID, &item.Category, &item.Status, &item.Tags, &item.Content, &item.Summary, &item.CreatedAt, &item.UpdatedAt, &item.PublishedAt)
@@ -322,6 +379,16 @@ func (a *API) createArticle(c *gin.Context) {
 		httpx.Error(c, 400, 40000, "标题、slug 和分类不能为空")
 		return
 	}
+	normalizedTags, err := normalizeAndValidateTags(request.Tags)
+	if err != nil {
+		httpx.Error(c, 422, 42201, err.Error())
+		return
+	}
+	if err = a.validateArticleContent(request.Content); err != nil {
+		httpx.Error(c, 422, 42202, err.Error())
+		return
+	}
+	request.Tags = normalizedTags
 	status := request.Status
 	if status == "" {
 		status = "draft"
@@ -368,6 +435,20 @@ func (a *API) updateArticle(c *gin.Context) {
 	if c.ShouldBindJSON(&request) != nil {
 		httpx.Error(c, 400, 40000, "请求参数错误")
 		return
+	}
+	if request.Tags != nil {
+		normalizedTags, err := normalizeAndValidateTags(request.Tags)
+		if err != nil {
+			httpx.Error(c, 422, 42201, err.Error())
+			return
+		}
+		request.Tags = normalizedTags
+	}
+	if request.Content != nil {
+		if err := a.validateArticleContent(*request.Content); err != nil {
+			httpx.Error(c, 422, 42202, err.Error())
+			return
+		}
 	}
 	tx, err := a.DB.Begin(c)
 	if err != nil {
@@ -587,6 +668,11 @@ func (a *API) uploadImages(c *gin.Context) {
 	list := []gin.H{}
 	for _, headers := range form.File {
 		for _, header := range headers {
+			detectedMIME, err := validateImageFile(header)
+			if err != nil {
+				httpx.Error(c, 400, 40001, err.Error())
+				return
+			}
 			key, err := a.uploadToDisk(header)
 			if err != nil {
 				httpx.Error(c, 413, 41300, err.Error())
@@ -594,10 +680,7 @@ func (a *API) uploadImages(c *gin.Context) {
 			}
 			var id int64
 			var created time.Time
-			mime := header.Header.Get("Content-Type")
-			if mime == "" {
-				mime = "application/octet-stream"
-			}
+			mime := detectedMIME
 			err = a.DB.QueryRow(c, `INSERT INTO images(name,storage_key,url,mime_type,size_bytes,source,created_by) VALUES($1,$2,$3,$4,$5,'upload',$6) RETURNING id,created_at`, header.Filename, key, "/uploads/"+key, mime, header.Size, c.MustGet("lightdocs.user_id")).Scan(&id, &created)
 			if err != nil {
 				httpx.Error(c, 500, 50000, "保存图片失败")

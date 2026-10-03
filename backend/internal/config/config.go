@@ -7,24 +7,26 @@ import (
 )
 
 type Config struct {
-	Env                 string
-	HTTPAddr            string
-	DatabaseURL         string
-	FrontendOrigins     []string
-	AccessTokenTTLMin   int
-	RememberSessionDays int
-	MaxUploadBytes      int64
+	Env                    string
+	HTTPAddr               string
+	DatabaseURL            string
+	FrontendOrigins        []string
+	AccessTokenTTLMin      int
+	RememberSessionDays    int
+	MaxUploadBytes         int64
+	MaxArticleContentBytes int64
 }
 
 func Load() Config {
 	return Config{
-		Env:                 env("APP_ENV", "development"),
-		HTTPAddr:            env("HTTP_ADDR", ":8080"),
-		DatabaseURL:         env("DATABASE_URL", ""),
-		FrontendOrigins:     csvEnv("FRONTEND_ORIGINS", []string{"http://localhost:5173"}),
-		AccessTokenTTLMin:   intEnv("ACCESS_TOKEN_TTL_MINUTES", 30),
-		RememberSessionDays: intEnv("REMEMBER_SESSION_DAYS", 7),
-		MaxUploadBytes:      int64Env("MAX_UPLOAD_BYTES", 10*1024*1024),
+		Env:                    env("APP_ENV", "development"),
+		HTTPAddr:               env("HTTP_ADDR", ":8080"),
+		DatabaseURL:            env("DATABASE_URL", ""),
+		FrontendOrigins:        csvEnv("FRONTEND_ORIGINS", []string{"http://localhost:5173"}),
+		AccessTokenTTLMin:      intEnv("ACCESS_TOKEN_TTL_MINUTES", 30),
+		RememberSessionDays:    intEnv("REMEMBER_SESSION_DAYS", 7),
+		MaxUploadBytes:         int64Env("MAX_UPLOAD_BYTES", 10*1024*1024),
+		MaxArticleContentBytes: int64Env("MAX_ARTICLE_CONTENT_BYTES", 2*1024*1024),
 	}
 }
 

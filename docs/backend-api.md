@@ -261,7 +261,7 @@ X-Reauth-Token: <reauth_token>
 }
 ```
 
-校验：标题、slug、分类必填；slug 唯一；分类必须存在；标签去重并限制单个标签长度 50；正文长度按服务端配置限制。成功返回创建后的完整 `Article`。
+校验：标题、slug、分类必填；slug 唯一；标签去重并限制单个标签最多 8 个字符；正文默认最多 2 MiB，可通过 `MAX_ARTICLE_CONTENT_BYTES` 配置。成功返回创建后的完整 `Article`。
 
 ### 4.4 更新文章
 
@@ -364,7 +364,7 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 
 - `files`: 一个或多个图片文件
 
-限制建议：单文件最大 10 MB；允许 `image/jpeg`、`image/png`、`image/webp`、`image/gif`、`image/svg+xml`；必须校验文件头，不只依赖扩展名。
+限制：单文件默认最大 10 MB（由 `MAX_UPLOAD_BYTES` 配置）；允许 `image/jpeg`、`image/png`、`image/webp`、`image/gif`、`image/svg+xml`；服务端会读取文件内容校验真实 MIME，不信任扩展名或客户端传入的 `Content-Type`。
 
 响应：`ImageAsset[]`。图片上传到对象存储或本地文件服务后，数据库只保存 `storage_key` 和可访问 `url`。
 
@@ -494,6 +494,7 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 | HTTP | 业务码 | 说明 |
 | --- | --- | --- |
 | 400 | 40000 | 请求参数错误 |
+| 400 | 40001 | 图片文件类型不支持或文件内容无效 |
 | 401 | 40100 | 未登录或令牌无效 |
 | 401 | 40101 | 账号或密码错误 |
 | 401 | 40103 | 需要重新验证密码或验证凭证已失效 |
@@ -505,6 +506,8 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 | 409 | 40903 | 回收站恢复发生唯一性冲突 |
 | 413 | 41300 | 上传文件过大 |
 | 422 | 42200 | 业务校验失败 |
+| 422 | 42201 | 标签长度或格式校验失败 |
+| 422 | 42202 | 文章正文超过长度限制 |
 | 429 | 42900 | 请求过于频繁 |
 | 500 | 50000 | 服务端内部错误 |
 
