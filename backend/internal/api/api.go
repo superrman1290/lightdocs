@@ -896,11 +896,37 @@ func (a *API) updateAdminSettings(c *gin.Context) {
 	if request.Username == "" {
 		request.Username = "admin"
 	}
-	if _, err = a.DB.Exec(c, `UPDATE users SET username=$1,password_hash=$2,updated_at=now() WHERE id=$3`, request.Username, string(newHash), c.MustGet("lightdocs.user_id")); err != nil {
+	var logoutOtherDevices bool
+	if err = a.DB.QueryRow(c, `SELECT logout_other_devices_on_password_change FROM security_settings WHERE id=1`).Scan(&logoutOtherDevices); err != nil {
+		httpx.Error(c, 500, 50000, "读取会话安全设置失败")
+		return
+	}
+	currentTokenHash := authTokenHash(c)
+	tx, err := a.DB.Begin(c)
+	if err == nil {
+		defer tx.Rollback(c)
+	}
+	if err == nil {
+		_, err = tx.Exec(c, `UPDATE users SET username=$1,password_hash=$2,updated_at=now() WHERE id=$3`, request.Username, string(newHash), c.MustGet("lightdocs.user_id"))
+	}
+	if err == nil && logoutOtherDevices {
+		_, err = tx.Exec(c, `UPDATE auth_sessions SET revoked_at=now() WHERE user_id=$1 AND token_hash<>$2 AND revoked_at IS NULL`, c.MustGet("lightdocs.user_id"), currentTokenHash)
+	}
+	if err == nil {
+		err = tx.Commit(c)
+	} else {
+		_ = tx.Rollback(c)
+	}
+	if err != nil {
 		httpx.Error(c, 409, 40901, "账号更新失败")
 		return
 	}
 	a.adminSettings(c)
+}
+
+func authTokenHash(c *gin.Context) string {
+	header := strings.TrimSpace(c.GetHeader("Authorization"))
+	return auth.TokenHash(strings.TrimSpace(strings.TrimPrefix(header, "Bearer ")))
 }
 
 // requireReauth enforces the current security policy for sensitive settings.

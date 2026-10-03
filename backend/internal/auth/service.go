@@ -218,3 +218,10 @@ func hashToken(token string) string {
 	sum := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(sum[:])
 }
+
+// TokenHash returns the database representation of a bearer token. It is
+// exposed to the API package only for operations that must preserve the
+// current session while revoking other sessions.
+func TokenHash(token string) string {
+	return hashToken(token)
+}
