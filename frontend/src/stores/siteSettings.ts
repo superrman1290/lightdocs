@@ -1,5 +1,5 @@
 import { reactive } from 'vue'
-import { request } from '../services/apiClient'
+import { getAccessToken, request } from '../services/apiClient'
 
 export interface SecuritySettings {
   maxLoginFailures: number
@@ -117,7 +117,8 @@ export const loadSiteSettings = () => {
       storageListenerRegistered = true
     }
 
-    void request<Partial<SiteSettings>>('/settings/site').then(remote => {
+    const settingsPath = getAccessToken() ? '/settings/site' : '/public/settings/site'
+    void request<Partial<SiteSettings>>(settingsPath).then(remote => {
       applySiteSettings(remote)
     }).catch(() => undefined)
 

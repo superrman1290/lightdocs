@@ -58,6 +58,7 @@ func (a *API) Router(origins []string) *gin.Engine {
 	api.GET("/public/docs/:slug", a.publicDoc)
 	api.GET("/public/search", a.publicSearch)
 	api.GET("/public/settings/site", a.publicSiteSettings)
+	api.GET("/public/categories", a.listCategories)
 
 	protected := api.Group("")
 	protected.Use(a.Auth.Middleware())

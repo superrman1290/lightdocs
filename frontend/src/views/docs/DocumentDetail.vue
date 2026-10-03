@@ -33,7 +33,17 @@
       </aside>
 
       <main class="document-main">
-        <div v-if="!route.params.slug" class="document-blank" />
+        <section v-if="!route.params.slug" class="docs-home">
+          <h1>教程中心</h1>
+          <p>浏览已发布的技术文档和实践教程。</p>
+          <div class="docs-home-grid">
+            <RouterLink v-for="item in navigationArticles" :key="item.id" :to="`/docs/${item.slug}`" class="docs-home-card">
+              <span>{{ item.category }}</span>
+              <h2>{{ item.title }}</h2>
+              <p>{{ item.summary }}</p>
+            </RouterLink>
+          </div>
+        </section>
         <div v-else-if="loading" class="document-loading">正在加载文档...</div>
         <div v-else-if="!article" class="document-empty"><h1>文档不存在</h1><p>这篇文档可能已被删除，或尚未公开发布。</p></div>
         <article v-else class="document-content">
@@ -65,10 +75,9 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, Calendar, Check, Clock, DocumentCopy, FolderOpened, House, Moon, Search, Sunny } from '@element-plus/icons-vue'
 import { request, resolveApiURL } from '../../services/apiClient'
-import { articleService } from '../../services/articleService'
 import { categoryService } from '../../services/categoryService'
 import { loadSiteSettings, siteSettings } from '../../stores/siteSettings'
-import type { Article } from '../../types/article'
+import type { Article, ArticlePageResult } from '../../types/article'
 
 interface CategoryGroup { id: number; name: string; children: Array<{ id: number; slug: string; title: string }> }
 type ContentBlock = { id: string; type: 'heading'; level: number; text: string } | { id: string; type: 'paragraph'; html: string } | { id: string; type: 'image'; src: string; alt: string } | { id: string; type: 'list'; items: string[] } | { id: string; type: 'code'; language: string; code: string }
@@ -126,7 +135,7 @@ const loadArticle = async () => {
   loading.value = true
   try { article.value = await request<Article>(`/public/docs/${encodeURIComponent(String(route.params.slug))}`) } catch { article.value = null } finally { loading.value = false }
 }
-const loadCategories = async () => { const [categoryResult, articleResult] = await Promise.all([categoryService.getCategories(), articleService.getArticles({ status: 'published', page: 1, pageSize: 100 })]); categories.value = categoryResult; navigationArticles.value = articleResult.list; categories.value.filter(category => category.parentId === null).forEach(category => expandedGroups.add(category.id)) }
+const loadCategories = async () => { const [categoryResult, articleResult] = await Promise.all([request<Awaited<ReturnType<typeof categoryService.getCategories>>>('/public/categories'), request<ArticlePageResult>('/public/search?page=1&pageSize=100')]); categories.value = categoryResult; navigationArticles.value = articleResult.list; categories.value.filter(category => category.parentId === null).forEach(category => expandedGroups.add(category.id)) }
 const toggleGroup = (id: number) => expandedGroups.has(id) ? expandedGroups.delete(id) : expandedGroups.add(id)
 const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; document.documentElement.classList.toggle('dark-mode', isDarkMode.value) }
 const handleSearch = () => { const keyword = searchKeyword.value.trim(); if (keyword) router.push({ path: '/search', query: { keyword } }) }
@@ -163,6 +172,81 @@ onMounted(async () => { loadSiteSettings(); isDarkMode.value = document.document
 
 .document-blank {
   min-height: calc(100vh - 160px);
+}
+
+.docs-home {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 60px 10px;
+}
+
+.docs-home h1 {
+  margin: 0 0 12px;
+  color: #10233f;
+  font-size: 38px;
+}
+
+.docs-home > p {
+  margin: 0 0 32px;
+  color: #7788a1;
+}
+
+.docs-home-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.docs-home-card {
+  display: block;
+  padding: 20px;
+  border: 1px solid #e1e8f1;
+  border-radius: 10px;
+  color: inherit;
+  background: #ffffff;
+}
+
+.docs-home-card:hover {
+  border-color: #91bdf3;
+  box-shadow: 0 8px 22px rgb(40 100 180 / 10%);
+}
+
+.docs-home-card span {
+  color: #1674e8;
+  font-size: 13px;
+}
+
+.docs-home-card h2 {
+  margin: 10px 0 8px;
+  color: #1d376a;
+  font-size: 20px;
+}
+
+.docs-home-card p {
+  margin: 0;
+  color: #7788a1;
+  font-size: 14px;
+}
+
+.docs-page.dark-mode .docs-home h1,
+.docs-page.dark-mode .docs-home-card h2 {
+  color: #f1f5f9;
+}
+
+.docs-page.dark-mode .docs-home > p,
+.docs-page.dark-mode .docs-home-card p {
+  color: #a9b8cc;
+}
+
+.docs-page.dark-mode .docs-home-card {
+  border-color: #293a53;
+  background: #111b2b;
+}
+
+@media (max-width: 720px) {
+  .docs-home-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .article-body h2,
