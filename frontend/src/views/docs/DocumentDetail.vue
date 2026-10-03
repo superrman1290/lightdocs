@@ -46,6 +46,7 @@
             <template v-for="block in blocks" :key="block.id">
               <h2 v-if="block.type === 'heading' && block.level === 2" :id="block.id">{{ block.text }}</h2>
               <h3 v-else-if="block.type === 'heading'" :id="block.id">{{ block.text }}</h3>
+              <img v-else-if="block.type === 'image'" class="article-image" :src="block.src" :alt="block.alt" />
               <p v-else-if="block.type === 'paragraph'" v-html="block.html" />
               <ul v-else-if="block.type === 'list'"><li v-for="item in block.items" :key="item">{{ item }}</li></ul>
               <div v-else class="code-block"><div class="code-header"><span>{{ block.language || 'text' }}</span><button @click="copyCode(block.id, block.code)"><Check v-if="copiedCode === block.id" :size="14" /><DocumentCopy v-else :size="14" />{{ copiedCode === block.id ? '已复制' : '复制' }}</button></div><pre><code>{{ block.code }}</code></pre></div>
@@ -63,14 +64,14 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowDown, Calendar, Check, Clock, DocumentCopy, FolderOpened, House, Moon, Search, Sunny } from '@element-plus/icons-vue'
-import { request } from '../../services/apiClient'
+import { request, resolveApiURL } from '../../services/apiClient'
 import { articleService } from '../../services/articleService'
 import { categoryService } from '../../services/categoryService'
 import { loadSiteSettings, siteSettings } from '../../stores/siteSettings'
 import type { Article } from '../../types/article'
 
 interface CategoryGroup { id: number; name: string; children: Array<{ id: number; slug: string; title: string }> }
-type ContentBlock = { id: string; type: 'heading'; level: number; text: string } | { id: string; type: 'paragraph'; html: string } | { id: string; type: 'list'; items: string[] } | { id: string; type: 'code'; language: string; code: string }
+type ContentBlock = { id: string; type: 'heading'; level: number; text: string } | { id: string; type: 'paragraph'; html: string } | { id: string; type: 'image'; src: string; alt: string } | { id: string; type: 'list'; items: string[] } | { id: string; type: 'code'; language: string; code: string }
 
 const route = useRoute(); const router = useRouter(); const article = ref<Article | null>(null); const loading = ref(true); const searchKeyword = ref(''); const isDarkMode = ref(false); const copiedCode = ref(''); const categories = ref<Awaited<ReturnType<typeof categoryService.getCategories>>>([]); const navigationArticles = ref<Article[]>([]); const expandedGroups = reactive(new Set<number>())
 const categoryGroups = computed<CategoryGroup[]>(() => categories.value.filter(category => category.parentId === null).map(root => ({ id: root.id, name: root.name, children: navigationArticles.value.filter(article => article.categoryId === root.id).map(article => ({ id: article.id, slug: article.slug, title: article.title })) })))
@@ -114,7 +115,7 @@ ${current.content.replace(/^#\s+.*$/m, '').trim() || '文档内容正在整理�
 感谢阅读本文。`
 const blocks = computed<ContentBlock[]>(() => parseMarkdown(article.value ? fallbackMarkdown(article.value) : ''))
 const headings = computed(() => blocks.value.filter(block => block.type === 'heading') as Array<Extract<ContentBlock, { type: 'heading' }>>)
-const readingMinutes = computed(() => Math.max(1, Math.ceil(blocks.value.reduce((total, block) => total + (block.type === 'code' ? block.code.length : block.type === 'list' ? block.items.join('').length : block.type === 'heading' ? block.text.length : block.html.replace(/<[^>]+>/g, '').length), 0) / 420)))
+const readingMinutes = computed(() => Math.max(1, Math.ceil(blocks.value.reduce((total, block) => total + (block.type === 'code' ? block.code.length : block.type === 'list' ? block.items.join('').length : block.type === 'heading' ? block.text.length : block.type === 'image' ? 100 : block.html.replace(/<[^>]+>/g, '').length), 0) / 420)))
 const loadArticle = async () => {
   if (!route.params.slug) {
     article.value = null
@@ -132,7 +133,26 @@ const handleSearch = () => { const keyword = searchKeyword.value.trim(); if (key
 const formatDate = (value: string) => value.replace('T', ' ').slice(0, 10)
 const copyCode = async (id: string, code: string) => { await navigator.clipboard?.writeText(code); copiedCode.value = id; window.setTimeout(() => { copiedCode.value = '' }, 1400) }
 const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/`([^`]+)`/g, '<code>$1</code>')
-function parseMarkdown(markdown: string): ContentBlock[] { const lines = markdown.split('\n'); const result: ContentBlock[] = []; let index = 0; let paragraph: string[] = []; const flush = () => { if (paragraph.length) { result.push({ id: `paragraph-${result.length}`, type: 'paragraph', html: escapeHtml(paragraph.join(' ')) }); paragraph = [] } }; while (index < lines.length) { const line = lines[index]; if (line.startsWith('```')) { flush(); const language = line.slice(3).trim() || 'text'; const codeLines: string[] = []; index += 1; while (index < lines.length && !lines[index].startsWith('```')) { codeLines.push(lines[index]); index += 1 } result.push({ id: `code-${result.length}`, type: 'code', language, code: codeLines.join('\n') }); index += 1; continue } const heading = /^(#{2,3})\s+(.+)$/.exec(line); if (heading) { flush(); result.push({ id: `heading-${result.length}`, type: 'heading', level: heading[1].length, text: heading[2] }); index += 1; continue } if (/^[-*]\s+/.test(line)) { flush(); const items: string[] = []; while (index < lines.length && /^[-*]\s+/.test(lines[index])) { items.push(lines[index].replace(/^[-*]\s+/, '')); index += 1 } result.push({ id: `list-${result.length}`, type: 'list', items }); continue } if (!line.trim()) flush(); else paragraph.push(line.trim()); index += 1 } flush(); return result }
+function parseMarkdown(markdown: string): ContentBlock[] {
+  const lines = markdown.split('\n')
+  const result: ContentBlock[] = []
+  let index = 0
+  let paragraph: string[] = []
+  const flush = () => { if (paragraph.length) { result.push({ id: `paragraph-${result.length}`, type: 'paragraph', html: escapeHtml(paragraph.join(' ')) }); paragraph = [] } }
+  while (index < lines.length) {
+    const line = lines[index]
+    if (line.startsWith('```')) { flush(); const language = line.slice(3).trim() || 'text'; const codeLines: string[] = []; index += 1; while (index < lines.length && !lines[index].startsWith('```')) { codeLines.push(lines[index]); index += 1 }; result.push({ id: `code-${result.length}`, type: 'code', language, code: codeLines.join('\n') }); index += 1; continue }
+    const heading = /^(#{2,3})\s+(.+)$/.exec(line)
+    if (heading) { flush(); result.push({ id: `heading-${result.length}`, type: 'heading', level: heading[1].length, text: heading[2] }); index += 1; continue }
+    const image = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(line.trim())
+    if (image) { flush(); result.push({ id: `image-${result.length}`, type: 'image', alt: image[1], src: resolveApiURL(image[2]) }); index += 1; continue }
+    if (/^[-*]\s+/.test(line)) { flush(); const items: string[] = []; while (index < lines.length && /^[-*]\s+/.test(lines[index])) { items.push(lines[index].replace(/^[-*]\s+/, '')); index += 1 }; result.push({ id: `list-${result.length}`, type: 'list', items }); continue }
+    if (!line.trim()) flush(); else paragraph.push(line.trim())
+    index += 1
+  }
+  flush()
+  return result
+}
 onMounted(async () => { loadSiteSettings(); isDarkMode.value = document.documentElement.classList.contains('dark-mode'); await Promise.all([loadCategories(), loadArticle()]) }); watch(() => route.params.slug, loadArticle)
 </script>
 
@@ -148,6 +168,16 @@ onMounted(async () => { loadSiteSettings(); isDarkMode.value = document.document
 .article-body h2,
 .article-body h3 {
   scroll-margin-top: 96px;
+}
+
+.article-image {
+  display: block;
+  max-width: 100%;
+  max-height: 560px;
+  margin: 24px auto;
+  border-radius: 8px;
+  object-fit: contain;
+  box-shadow: 0 8px 24px rgba(30, 45, 66, 0.12);
 }
 
 .toc-sidebar {
