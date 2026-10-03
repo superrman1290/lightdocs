@@ -164,7 +164,9 @@ site_settings 1 ───── 1 security_settings
 | `image_id` | bigint | PK/FK | 图片 ID |
 | `created_at` | timestamptz | NOT NULL | 建立引用时间 |
 
-图片可能在 Markdown 正文中直接引用 URL。服务端可在保存文章时解析 URL 并维护该表，永久删除图片前检查引用数。
+图片可能在 Markdown 正文中直接引用 URL。服务端在保存文章时解析站内 `/uploads/...` URL 并维护该表；外部图片不建立站内资源关系。
+
+文章新建和更新必须在同一事务中重建该文章的关系集合；图片页面和删除接口以该表作为引用判断依据。文章软删除时保留关系，文章恢复时从快照补回关系，文章永久删除时由外键级联清理。
 
 ### 3.9 `recycle_bin` 回收站
 
@@ -201,6 +203,7 @@ site_settings 1 ───── 1 security_settings
 4. `images`: `(source, created_at DESC)`、`created_at DESC`、`name gin_trgm_ops`。
 5. `recycle_bin`: `(item_type, deleted_at DESC)`、`deleted_at DESC`，`snapshot` 不直接建立全文索引。
 6. `auth_sessions`: `user_id, revoked_at, expires_at`，并对 `token_hash` 建唯一索引。
+7. `article_images`: `(image_id, article_id)` 反向索引，用于图片引用查询和删除保护。
 
 ## 5. 关键事务
 
@@ -228,7 +231,7 @@ BEGIN
 COMMIT
 ```
 
-图片删除使用相同的软删除事务。只有在 `article_images` 没有引用时，永久删除才允许从 `images` 和对象存储中清理文件。
+图片删除使用相同的软删除事务。只要 `article_images` 存在引用，图片就不能删除；文章永久删除后关系由外键级联清理。
 
 ### 5.3 修改管理员密码
 

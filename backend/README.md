@@ -24,6 +24,13 @@ Apply the schema before starting the server:
 go run ./cmd/migrate -schema ../db/schema.sql
 ```
 
+If the database already contains articles and images, rebuild the normalized
+article-image relations once after applying the schema:
+
+```powershell
+go run ./cmd/backfillimages
+```
+
 Create the first administrator without storing a plaintext password in the repository:
 
 ```powershell

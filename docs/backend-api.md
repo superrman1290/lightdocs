@@ -372,7 +372,7 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 
 `DELETE /images?ids=1,2,3`
 
-图片写入 `deleted_at` 并进入回收站。若图片被文章正文或 `article_images` 引用，仍允许回收；永久删除前必须检查引用，存在引用时返回 `40902`。
+图片写入 `deleted_at` 并进入回收站。只要图片存在 `article_images` 引用，就不允许从图片页面删除，接口返回 `40902`；文章永久删除后关系由外键级联清理。
 
 ## 8. 回收站
 

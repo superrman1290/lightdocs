@@ -7,8 +7,10 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -135,6 +137,57 @@ type articleResponse struct {
 	CreatedAt   time.Time  `json:"createdAt"`
 	UpdatedAt   time.Time  `json:"updatedAt"`
 	PublishedAt *time.Time `json:"publishedAt,omitempty"`
+}
+
+var markdownImagePattern = regexp.MustCompile(`!\[[^\]]*\]\(([^\s)]+)(?:\s+"[^"]*")?\)`)
+
+// articleImageReferences extracts local image URLs from Markdown. External
+// images remain valid Markdown but are not managed by the images table.
+func articleImageReferences(content string) []string {
+	seen := make(map[string]struct{})
+	refs := make([]string, 0)
+	for _, match := range markdownImagePattern.FindAllStringSubmatch(content, -1) {
+		if len(match) < 2 {
+			continue
+		}
+		raw := strings.TrimSpace(match[1])
+		parsed, err := url.Parse(raw)
+		if err != nil || parsed.Path == "" || !strings.HasPrefix(parsed.Path, "/uploads/") {
+			continue
+		}
+		path := parsed.Path
+		if _, ok := seen[path]; ok {
+			continue
+		}
+		seen[path] = struct{}{}
+		refs = append(refs, path)
+	}
+	return refs
+}
+
+func syncArticleImages(ctx context.Context, tx pgx.Tx, articleID int64, content string) error {
+	refs := articleImageReferences(content)
+	if _, err := tx.Exec(ctx, `DELETE FROM article_images WHERE article_id=$1`, articleID); err != nil {
+		return err
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+	rows, err := tx.Query(ctx, `SELECT id FROM images WHERE url = ANY($1::text[]) OR ('/uploads/' || storage_key) = ANY($1::text[])`, refs)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var imageID int64
+		if err := rows.Scan(&imageID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO article_images(article_id,image_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, articleID, imageID); err != nil {
+			return err
+		}
+	}
+	return rows.Err()
 }
 
 func scanArticle(row pgx.Row) (articleResponse, error) {
@@ -277,8 +330,20 @@ func (a *API) createArticle(c *gin.Context) {
 	if status == "published" {
 		published = time.Now()
 	}
+	tx, err := a.DB.Begin(c)
+	if err != nil {
+		httpx.Error(c, 500, 50000, "创建文章失败")
+		return
+	}
+	defer tx.Rollback(c)
 	var item articleResponse
-	err := a.DB.QueryRow(c, `INSERT INTO articles (title, slug, category_id, status, tags, content, summary, published_at, created_by, updated_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) RETURNING id, title, slug, category_id, (SELECT name FROM categories WHERE id = category_id), status, tags, content, summary, created_at, updated_at, published_at`, request.Title, request.Slug, request.CategoryID, status, request.Tags, request.Content, request.Summary, published, c.MustGet("lightdocs.user_id")).Scan(&item.ID, &item.Title, &item.Slug, &item.CategoryID, &item.Category, &item.Status, &item.Tags, &item.Content, &item.Summary, &item.CreatedAt, &item.UpdatedAt, &item.PublishedAt)
+	err = tx.QueryRow(c, `INSERT INTO articles (title, slug, category_id, status, tags, content, summary, published_at, created_by, updated_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$9) RETURNING id, title, slug, category_id, (SELECT name FROM categories WHERE id = category_id), status, tags, content, summary, created_at, updated_at, published_at`, request.Title, request.Slug, request.CategoryID, status, request.Tags, request.Content, request.Summary, published, c.MustGet("lightdocs.user_id")).Scan(&item.ID, &item.Title, &item.Slug, &item.CategoryID, &item.Category, &item.Status, &item.Tags, &item.Content, &item.Summary, &item.CreatedAt, &item.UpdatedAt, &item.PublishedAt)
+	if err == nil {
+		err = syncArticleImages(c, tx, item.ID, request.Content)
+	}
+	if err == nil {
+		err = tx.Commit(c)
+	}
 	if err != nil {
 		httpx.Error(c, 422, 42200, "创建文章失败")
 		return
@@ -304,8 +369,20 @@ func (a *API) updateArticle(c *gin.Context) {
 		httpx.Error(c, 400, 40000, "请求参数错误")
 		return
 	}
+	tx, err := a.DB.Begin(c)
+	if err != nil {
+		httpx.Error(c, 500, 50000, "更新文章失败")
+		return
+	}
+	defer tx.Rollback(c)
 	var item articleResponse
-	err := a.DB.QueryRow(c, `UPDATE articles SET title=COALESCE($1,title), slug=COALESCE($2,slug), category_id=COALESCE($3,category_id), status=COALESCE($4,status), tags=COALESCE($5,tags), content=COALESCE($6,content), summary=COALESCE($7,summary), published_at=CASE WHEN $4='published' THEN COALESCE(published_at,now()) WHEN $4='draft' THEN NULL ELSE published_at END, updated_by=$8, updated_at=now() WHERE id=$9 AND deleted_at IS NULL RETURNING id,title,slug,category_id,(SELECT name FROM categories WHERE id=category_id),status,tags,content,summary,created_at,updated_at,published_at`, request.Title, request.Slug, request.CategoryID, request.Status, request.Tags, request.Content, request.Summary, c.MustGet("lightdocs.user_id"), id).Scan(&item.ID, &item.Title, &item.Slug, &item.CategoryID, &item.Category, &item.Status, &item.Tags, &item.Content, &item.Summary, &item.CreatedAt, &item.UpdatedAt, &item.PublishedAt)
+	err = tx.QueryRow(c, `UPDATE articles SET title=COALESCE($1,title), slug=COALESCE($2,slug), category_id=COALESCE($3,category_id), status=COALESCE($4,status), tags=COALESCE($5,tags), content=COALESCE($6,content), summary=COALESCE($7,summary), published_at=CASE WHEN $4='published' THEN COALESCE(published_at,now()) WHEN $4='draft' THEN NULL ELSE published_at END, updated_by=$8, updated_at=now() WHERE id=$9 AND deleted_at IS NULL RETURNING id,title,slug,category_id,(SELECT name FROM categories WHERE id=category_id),status,tags,content,summary,created_at,updated_at,published_at`, request.Title, request.Slug, request.CategoryID, request.Status, request.Tags, request.Content, request.Summary, c.MustGet("lightdocs.user_id"), id).Scan(&item.ID, &item.Title, &item.Slug, &item.CategoryID, &item.Category, &item.Status, &item.Tags, &item.Content, &item.Summary, &item.CreatedAt, &item.UpdatedAt, &item.PublishedAt)
+	if err == nil && request.Content != nil {
+		err = syncArticleImages(c, tx, item.ID, *request.Content)
+	}
+	if err == nil {
+		err = tx.Commit(c)
+	}
 	if err == pgx.ErrNoRows {
 		httpx.Error(c, 404, 40400, "文章不存在")
 		return
@@ -478,7 +555,7 @@ func (a *API) listImages(c *gin.Context) {
 		return
 	}
 	args = append(args, size, (page-1)*size)
-	rows, err := a.DB.Query(c, "SELECT i.id,i.name,i.url,ceil(i.size_bytes/1024.0),i.size_bytes,i.mime_type,i.storage_key,i.width,i.height,i.source,i.created_at,EXISTS (SELECT 1 FROM articles a WHERE a.deleted_at IS NULL AND (a.content LIKE '%' || i.url || '%' OR a.content LIKE '%' || i.storage_key || '%')) FROM images i WHERE"+where+" ORDER BY i.created_at DESC LIMIT $"+strconv.Itoa(len(args)-1)+" OFFSET $"+strconv.Itoa(len(args)), args...)
+	rows, err := a.DB.Query(c, "SELECT i.id,i.name,i.url,ceil(i.size_bytes/1024.0),i.size_bytes,i.mime_type,i.storage_key,i.width,i.height,i.source,i.created_at,EXISTS (SELECT 1 FROM article_images ai WHERE ai.image_id=i.id) FROM images i WHERE"+where+" ORDER BY i.created_at DESC LIMIT $"+strconv.Itoa(len(args)-1)+" OFFSET $"+strconv.Itoa(len(args)), args...)
 	if err != nil {
 		httpx.Error(c, 500, 50000, "查询图片失败")
 		return
@@ -543,13 +620,7 @@ func (a *API) deleteImages(c *gin.Context) {
 			continue
 		}
 		var referenced bool
-		if err = a.DB.QueryRow(c, `SELECT EXISTS (
-			SELECT 1
-			FROM images i
-			JOIN articles a ON a.deleted_at IS NULL
-			WHERE i.id=$1 AND i.deleted_at IS NULL
-			  AND (a.content LIKE '%' || i.url || '%' OR a.content LIKE '%' || i.storage_key || '%')
-		)`, id).Scan(&referenced); err != nil {
+		if err = a.DB.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM article_images WHERE image_id=$1)`, id).Scan(&referenced); err != nil {
 			httpx.Error(c, 500, 50000, "删除图片失败")
 			return
 		}
@@ -649,6 +720,21 @@ func (a *API) updateRecycle(c *gin.Context) {
 	if _, err = tx.Exec(c, "UPDATE "+table+" SET deleted_at=NULL,deleted_by=NULL WHERE id=$1", itemID); err != nil {
 		httpx.Error(c, 409, 40903, "恢复失败")
 		return
+	}
+	if itemType == "article" {
+		var articleSnapshot struct {
+			ArticleImageIDs []int64 `json:"article_image_ids"`
+		}
+		if err = json.Unmarshal(snapshot, &articleSnapshot); err != nil {
+			httpx.Error(c, 500, 50000, "恢复失败，文章快照无效")
+			return
+		}
+		for _, imageID := range articleSnapshot.ArticleImageIDs {
+			if _, err = tx.Exec(c, `INSERT INTO article_images(article_id,image_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, itemID, imageID); err != nil {
+				httpx.Error(c, 409, 40903, "恢复失败，文章图片关系无效")
+				return
+			}
+		}
 	}
 	if _, err = tx.Exec(c, `DELETE FROM recycle_bin WHERE id=$1`, id); err != nil {
 		httpx.Error(c, 500, 50000, "恢复失败，回收站记录未删除")

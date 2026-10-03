@@ -227,6 +227,9 @@ CREATE TABLE article_images (
   PRIMARY KEY (article_id, image_id)
 );
 
+CREATE INDEX IF NOT EXISTS idx_article_images_image
+  ON article_images (image_id, article_id);
+
 CREATE TABLE recycle_bin (
   id UUID PRIMARY KEY,
   item_type VARCHAR(20) NOT NULL CHECK (item_type IN ('article', 'image')),
