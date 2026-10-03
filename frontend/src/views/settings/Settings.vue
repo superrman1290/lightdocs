@@ -229,10 +229,6 @@
               <span>管理员账号</span>
               <strong>{{ adminSettings.username }}</strong>
             </div>
-            <div class="admin-summary-row">
-              <span>登录密码</span>
-              <strong>••••{{ passwordLastFour }}</strong>
-            </div>
           </div>
 
           <div class="security-section admin-edit-section">
@@ -300,7 +296,6 @@
 
 <script setup lang="ts">
 import {
-  computed,
   onMounted,
   reactive,
   ref,
@@ -360,15 +355,20 @@ const adminForm = reactive<AdminSettings & {
   confirmPassword: string
 }>({
   username: siteSettings.admin.username,
-  password: siteSettings.admin.password,
   currentPassword: '',
   newPassword: '',
   confirmPassword: '',
 })
 
-const passwordLastFour = computed(() => {
-  return adminSettings.password.slice(-4)
-})
+const loadAdminSettings = async () => {
+  try {
+    const remote = await request<AdminSettings>('/settings/admin')
+    adminSettings.username = remote.username
+    adminForm.username = remote.username
+  } catch (error) {
+    console.error('获取管理员信息失败：', error)
+  }
+}
 
 const triggerUpload = () => {
   fileInput.value?.click()
@@ -471,16 +471,11 @@ const restoreSecurityDefaults = () => {
   ElMessage.success('已恢复默认安全设置，请保存后生效')
 }
 
-const handleSaveAdmin = () => {
+const handleSaveAdmin = async () => {
   const username = adminForm.username.trim()
 
   if (!username) {
     ElMessage.warning('管理员账号不能为空')
-    return
-  }
-
-  if (adminForm.currentPassword !== adminSettings.password) {
-    ElMessage.error('当前密码不正确')
     return
   }
 
@@ -497,12 +492,7 @@ const handleSaveAdmin = () => {
   saving.value = true
 
   try {
-    const nextAdmin = {
-      username,
-      password: adminForm.newPassword,
-    }
-
-    void request('/settings/admin', {
+    await request<AdminSettings>('/settings/admin', {
       method: 'PATCH',
       body: JSON.stringify({
         username,
@@ -512,15 +502,7 @@ const handleSaveAdmin = () => {
       }),
     })
 
-    saveSiteSettings({
-      siteName: siteSettings.siteName,
-      siteTitle: siteSettings.siteTitle,
-      logoUrl: siteSettings.logoUrl,
-      security: {
-        ...securityForm,
-      },
-      admin: nextAdmin,
-    })
+    adminSettings.username = username
 
     adminForm.currentPassword = ''
     adminForm.newPassword = ''
@@ -553,7 +535,7 @@ onMounted(() => {
   form.logoUrl = siteSettings.logoUrl
   Object.assign(securityForm, siteSettings.security)
   adminForm.username = siteSettings.admin.username
-  adminForm.password = siteSettings.admin.password
+  void loadAdminSettings()
 })
 
 watch(

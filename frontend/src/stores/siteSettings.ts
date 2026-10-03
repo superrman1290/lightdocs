@@ -12,7 +12,6 @@ export interface SecuritySettings {
 
 export interface AdminSettings {
   username: string
-  password: string
 }
 
 export interface SiteSettings {
@@ -37,7 +36,6 @@ export const defaultSecuritySettings: SecuritySettings = {
 
 export const defaultAdminSettings: AdminSettings = {
   username: 'admin',
-  password: '1234',
 }
 
 export const siteSettings = reactive<SiteSettings>({
@@ -127,12 +125,10 @@ export const loadSiteSettings = () => {
     if (saved) {
       const parsed = JSON.parse(saved) as Partial<SiteSettings>
 
-      // 迁移早期演示默认值，保留用户后来主动修改的密码。
-      if (
-        parsed.admin?.username === 'admin' &&
-        parsed.admin.password === 'admin1234'
-      ) {
-        parsed.admin.password = defaultAdminSettings.password
+      // 旧版本可能曾把管理员密码写入本地设置。管理员信息现在只从
+      // 后端读取，清理旧缓存时不保留 admin 字段，避免明文密码残留。
+      if ('admin' in parsed) {
+        delete parsed.admin
         window.localStorage.setItem(storageKey, JSON.stringify(parsed))
       }
 
@@ -161,7 +157,12 @@ export const saveSiteSettings = (settings: SiteSettings) => {
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(
       storageKey,
-      JSON.stringify(settings),
+      JSON.stringify({
+        siteName: settings.siteName,
+        siteTitle: settings.siteTitle,
+        logoUrl: settings.logoUrl,
+        security: settings.security,
+      }),
     )
   }
 }

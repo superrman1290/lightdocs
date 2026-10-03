@@ -121,7 +121,7 @@
 ```json
 {
   "username": "admin",
-  "password": "1234",
+  "password": "your-password",
   "rememberMe": false
 }
 ```
@@ -470,7 +470,7 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 
 ### 9.4 管理员信息与密码
 
-`GET /settings/admin`：只返回 `id`、`username`、`passwordLastFour`，绝不返回密码或哈希。
+`GET /settings/admin`：只返回 `id`、`username`，绝不返回密码、密码后四位或密码哈希。
 
 `PATCH /settings/admin`：
 

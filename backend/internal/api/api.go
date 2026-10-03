@@ -856,16 +856,12 @@ func (a *API) updateSecuritySettings(c *gin.Context) {
 func (a *API) adminSettings(c *gin.Context) {
 	var id int64
 	var username string
-	var hash string
-	if err := a.DB.QueryRow(c, `SELECT id,username,password_hash FROM users WHERE id=$1`, c.MustGet("lightdocs.user_id")).Scan(&id, &username, &hash); err != nil {
+	if err := a.DB.QueryRow(c, `SELECT id,username FROM users WHERE id=$1`, c.MustGet("lightdocs.user_id")).Scan(&id, &username); err != nil {
 		httpx.Error(c, 404, 40400, "管理员不存在")
 		return
 	}
-	last := ""
-	if len(hash) >= 4 {
-		last = hash[len(hash)-4:]
-	}
-	httpx.OK(c, 200, gin.H{"id": id, "username": username, "passwordLastFour": last})
+	// Never expose a password, hash suffix, or any other password-derived value.
+	httpx.OK(c, 200, gin.H{"id": id, "username": username})
 }
 func (a *API) updateAdminSettings(c *gin.Context) {
 	var request struct {
