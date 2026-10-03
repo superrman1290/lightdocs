@@ -807,6 +807,9 @@ func (a *API) siteSettings(c *gin.Context) {
 }
 func (a *API) publicSiteSettings(c *gin.Context) { a.siteSettings(c) }
 func (a *API) updateSiteSettings(c *gin.Context) {
+	if !a.requireReauth(c) {
+		return
+	}
 	var request struct {
 		SiteName  *string `json:"siteName"`
 		SiteTitle *string `json:"siteTitle"`
@@ -835,6 +838,9 @@ func (a *API) securitySettings(c *gin.Context) {
 	httpx.OK(c, 200, item)
 }
 func (a *API) updateSecuritySettings(c *gin.Context) {
+	if !a.requireReauth(c) {
+		return
+	}
 	var request struct {
 		Max      int  `json:"maxLoginFailures"`
 		Lock     int  `json:"lockMinutes"`
@@ -864,6 +870,9 @@ func (a *API) adminSettings(c *gin.Context) {
 	httpx.OK(c, 200, gin.H{"id": id, "username": username})
 }
 func (a *API) updateAdminSettings(c *gin.Context) {
+	if !a.requireReauth(c) {
+		return
+	}
 	var request struct {
 		Username string `json:"username"`
 		Current  string `json:"currentPassword"`
@@ -892,6 +901,24 @@ func (a *API) updateAdminSettings(c *gin.Context) {
 		return
 	}
 	a.adminSettings(c)
+}
+
+// requireReauth enforces the current security policy for sensitive settings.
+// The supplied token is consumed on success and cannot be replayed.
+func (a *API) requireReauth(c *gin.Context) bool {
+	var required bool
+	if err := a.DB.QueryRow(c, `SELECT require_password_reauth_on_save FROM security_settings WHERE id=1`).Scan(&required); err != nil {
+		httpx.Error(c, 500, 50000, "读取重新验证设置失败")
+		return false
+	}
+	if !required {
+		return true
+	}
+	if a.Auth.ValidateReauth(c, c.GetHeader("X-Reauth-Token")) {
+		return true
+	}
+	httpx.Error(c, 401, 40103, "请先重新验证密码")
+	return false
 }
 
 func pagination(c *gin.Context) (int, int) {

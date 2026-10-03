@@ -19,6 +19,8 @@
 ```text
 users 1 ───── n auth_sessions
   │
+  ├──── n reauth_tokens（短期、一次性重新验证凭证）
+  │
   ├──── n articles n ───── 1 categories
   │           │
   │           └──── n article_images n ───── 1 images
@@ -59,6 +61,18 @@ site_settings 1 ───── 1 security_settings
 | `created_at` | timestamptz | NOT NULL | 创建时间 |
 
 有效会话条件：`revoked_at IS NULL AND expires_at > now()`。
+
+### 3.2a `reauth_tokens` 短期重新验证凭证
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `id` | uuid | PK | 凭证记录 ID |
+| `user_id` | bigint | FK users | 所属管理员 |
+| `token_hash` | char(64) | UNIQUE NOT NULL | 只保存凭证哈希 |
+| `expires_at` | timestamptz | NOT NULL | 默认 5 分钟后过期 |
+| `created_at` | timestamptz | NOT NULL | 创建时间 |
+
+重新验证成功后凭证立即删除，只允许使用一次；过期凭证会在生成新凭证时清理。
 
 ### 3.3 `site_settings` 站点设置
 

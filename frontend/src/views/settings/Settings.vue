@@ -402,6 +402,19 @@ const handleLogoError = (event: Event) => {
   }
 }
 
+const requestReauthToken = async (providedPassword?: string) => {
+  const currentPassword = providedPassword ?? window.prompt('保存设置前请输入当前密码进行验证')
+  if (!currentPassword) {
+    return null
+  }
+
+  const result = await request<{ reauthToken: string }>('/auth/re-auth', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword }),
+  })
+  return result.reauthToken
+}
+
 const handleSave = async () => {
   if (!form.siteName.trim() || !form.siteTitle.trim()) {
     ElMessage.warning('网站名称和网站标题不能为空')
@@ -411,7 +424,14 @@ const handleSave = async () => {
   saving.value = true
 
   try {
-    saveSiteSettings({
+    const reauthToken = securityForm.requirePasswordReauthOnSave
+      ? await requestReauthToken()
+      : undefined
+    if (securityForm.requirePasswordReauthOnSave && !reauthToken) {
+      return
+    }
+
+    await saveSiteSettings({
       siteName: form.siteName.trim(),
       siteTitle: form.siteTitle.trim(),
       logoUrl: form.logoUrl,
@@ -421,7 +441,7 @@ const handleSave = async () => {
       admin: {
         ...adminSettings,
       },
-    })
+    }, reauthToken ?? undefined)
 
     ElMessage.success('设置已保存')
   } catch (error) {
@@ -432,16 +452,24 @@ const handleSave = async () => {
   }
 }
 
-const handleSaveSecurity = () => {
+const handleSaveSecurity = async () => {
   saving.value = true
 
   try {
-    void request('/settings/security', {
+    const reauthToken = siteSettings.security.requirePasswordReauthOnSave
+      ? await requestReauthToken()
+      : undefined
+    if (siteSettings.security.requirePasswordReauthOnSave && !reauthToken) {
+      return
+    }
+
+    await request('/settings/security', {
       method: 'PATCH',
+      headers: reauthToken ? { 'X-Reauth-Token': reauthToken } : undefined,
       body: JSON.stringify(securityForm),
     })
 
-    saveSiteSettings({
+    await saveSiteSettings({
       siteName: siteSettings.siteName,
       siteTitle: siteSettings.siteTitle,
       logoUrl: siteSettings.logoUrl,
@@ -451,7 +479,7 @@ const handleSaveSecurity = () => {
       admin: {
         ...adminSettings,
       },
-    })
+    }, undefined, false)
 
     ElMessage.success('安全设置已保存')
   } catch (error) {
@@ -492,8 +520,16 @@ const handleSaveAdmin = async () => {
   saving.value = true
 
   try {
+    const reauthToken = siteSettings.security.requirePasswordReauthOnSave
+      ? await requestReauthToken(adminForm.currentPassword)
+      : undefined
+    if (siteSettings.security.requirePasswordReauthOnSave && !reauthToken) {
+      return
+    }
+
     await request<AdminSettings>('/settings/admin', {
       method: 'PATCH',
+      headers: reauthToken ? { 'X-Reauth-Token': reauthToken } : undefined,
       body: JSON.stringify({
         username,
         currentPassword: adminForm.currentPassword,

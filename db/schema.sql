@@ -31,6 +31,17 @@ CREATE TABLE auth_sessions (
 CREATE INDEX idx_auth_sessions_user_active
   ON auth_sessions (user_id, revoked_at, expires_at);
 
+CREATE TABLE reauth_tokens (
+  id UUID PRIMARY KEY,
+  user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash CHAR(64) NOT NULL UNIQUE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_reauth_tokens_user_expiry
+  ON reauth_tokens (user_id, expires_at);
+
 CREATE TABLE site_settings (
   id SMALLINT PRIMARY KEY DEFAULT 1 CHECK (id = 1),
   site_name VARCHAR(30) NOT NULL,

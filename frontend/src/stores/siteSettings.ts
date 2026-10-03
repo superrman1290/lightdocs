@@ -142,17 +142,24 @@ export const loadSiteSettings = () => {
   }
 }
 
-export const saveSiteSettings = (settings: SiteSettings) => {
+export const saveSiteSettings = async (
+  settings: SiteSettings,
+  reauthToken?: string,
+  syncSite = true,
+) => {
   applySiteSettings(settings)
 
-  void request('/settings/site', {
-    method: 'PATCH',
-    body: JSON.stringify({
-      siteName: settings.siteName,
-      siteTitle: settings.siteTitle,
-      logoUrl: settings.logoUrl,
-    }),
-  }).catch(() => undefined)
+  if (syncSite) {
+    await request('/settings/site', {
+      method: 'PATCH',
+      headers: reauthToken ? { 'X-Reauth-Token': reauthToken } : undefined,
+      body: JSON.stringify({
+        siteName: settings.siteName,
+        siteTitle: settings.siteTitle,
+        logoUrl: settings.logoUrl,
+      }),
+    })
+  }
 
   if (typeof window !== 'undefined') {
     window.localStorage.setItem(

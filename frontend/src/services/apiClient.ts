@@ -37,7 +37,10 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   if (response.status === 204) return undefined as T
   const payload = await response.json().catch(() => null)
   if (!response.ok || payload?.code) {
-    if (response.status === 401) {
+    // Only an invalid/expired access session should redirect to login.
+    // Credential errors and failed re-authentication must stay on the current
+    // settings form so the user can correct the password.
+    if (response.status === 401 && payload?.code === 40100) {
       clearAccessToken()
       sessionStorage.removeItem('lightdocs-authenticated')
       if (location.pathname.startsWith('/admin')) {

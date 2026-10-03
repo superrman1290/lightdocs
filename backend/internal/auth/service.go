@@ -172,7 +172,38 @@ func (s *Service) Reauth(c *gin.Context, currentPassword string) {
 		httpx.Error(c, http.StatusInternalServerError, 50000, "无法创建验证凭证")
 		return
 	}
-	httpx.OK(c, http.StatusOK, gin.H{"reauthToken": token, "expiresAt": time.Now().Add(5 * time.Minute).UTC()})
+	expires := time.Now().Add(5 * time.Minute).UTC()
+	tx, err := s.DB.Begin(c.Request.Context())
+	if err == nil {
+		_, err = tx.Exec(c.Request.Context(), `DELETE FROM reauth_tokens WHERE user_id = $1 AND expires_at <= now()`, c.MustGet(userKey))
+	}
+	if err == nil {
+		_, err = tx.Exec(c.Request.Context(), `INSERT INTO reauth_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)`, uuid.New(), c.MustGet(userKey), hashToken(token), expires)
+	}
+	if err == nil {
+		err = tx.Commit(c.Request.Context())
+	} else {
+		_ = tx.Rollback(c.Request.Context())
+	}
+	if err != nil {
+		httpx.Error(c, http.StatusInternalServerError, 50000, "无法保存验证凭证")
+		return
+	}
+	httpx.OK(c, http.StatusOK, gin.H{"reauthToken": token, "expiresAt": expires})
+}
+
+// ValidateReauth consumes a short-lived re-authentication token exactly once.
+func (s *Service) ValidateReauth(c *gin.Context, token string) bool {
+	token = strings.TrimSpace(token)
+	if token == "" {
+		return false
+	}
+	var id uuid.UUID
+	err := s.DB.QueryRow(c.Request.Context(), `
+		DELETE FROM reauth_tokens
+		WHERE user_id = $1 AND token_hash = $2 AND expires_at > now()
+		RETURNING id`, c.MustGet(userKey), hashToken(token)).Scan(&id)
+	return err == nil
 }
 
 func randomToken() (string, error) {
