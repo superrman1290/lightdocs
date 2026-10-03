@@ -2,9 +2,9 @@
 
 > 文档版本：v1.0
 >
-> 适用前端：`src/types`、`src/services`、`src/stores/siteSettings`
+> 对应前端：`frontend/src/types`、`frontend/src/services`、`frontend/src/stores/siteSettings`
 >
-> 推荐实现：Go + Gin + PostgreSQL 16
+> 当前实现：Go + Gin + PostgreSQL 16
 
 ## 1. 接口约定
 
@@ -520,10 +520,10 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 5. 上传文件使用不可预测的存储名，禁止把用户文件名直接拼接到路径；SVG 文件应做脚本清理或禁止外部脚本。
 6. Markdown 渲染到 HTML 时做 XSS 过滤，禁止直接信任文章正文中的原始 HTML。
 
-## 12. 前端接入注意事项
+## 12. 当前前端接入说明
 
-1. 当前 `src/services/*` 返回的是业务数据，HTTP 适配层需要统一解包响应中的 `data`，并将非 2xx 或非零 `code` 转换为前端可提示的异常。
+1. 当前 `frontend/src/services/*` 已通过 `frontend/src/services/apiClient.ts` 调用真实 REST API；响应会统一解包 `data`，非 2xx 或非零 `code` 会转换为前端异常。
 2. `Article.category` 是接口层 JOIN `categories.name` 后的展示字段，不需要前端重复请求后再拼接。
-3. 数据库的 `images.size_bytes` 需要转换为当前前端 `ImageAsset.size` 使用的 KiB 整数；推荐同时保留 `sizeBytes` 供后续精确展示。
-4. 日期从 ISO 8601 转成页面需要的本地格式，避免把数据库的 UTC 字符串直接当作本地时间显示。
-5. 登录页目前使用前端本地状态完成演示；接入后端时将 `POST /auth/session` 的不透明 `accessToken` 放入内存或受保护的 Cookie，并在路由守卫中调用 `GET /auth/me` 校验会话。
+3. 数据库的 `images.size_bytes` 已转换为当前前端 `ImageAsset.size` 使用的 KiB 整数，同时返回 `sizeBytes`。
+4. 日期由页面按本地显示需要格式化，数据库和接口仍统一使用 UTC ISO 8601。
+5. 登录页使用 `POST /auth/session` 获取不透明 `accessToken`，当前保存在 `sessionStorage`，管理端路由守卫检查令牌并由接口返回的 `401` 触发清理和重新登录；生产环境可进一步改用 HttpOnly、Secure、SameSite Cookie。

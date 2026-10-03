@@ -6,7 +6,7 @@
 
 ## 1. 设计原则
 
-- 业务主键使用 `bigint generated always as identity`，会话、回收站记录使用 UUID。
+- 业务主键使用 `bigint generated always as identity`，会话、回收站和重新验证凭证记录使用 UUID。
 - 登录采用不透明随机 access token，数据库只保存 token 哈希；JWT 暂不作为第一版会话实现。
 - 所有业务表使用 `timestamptz`，由数据库保存 UTC 时间。
 - 密码只保存 Argon2id/bcrypt 哈希；`/settings/admin` 接口永远不返回哈希。
@@ -250,4 +250,4 @@ COMMIT
 - 初始化一个 `admin` 用户，密码只能由部署脚本通过环境变量传入并生成哈希，禁止把默认明文密码提交到仓库。
 - 初始化 `site_settings`：`轻文档`、`轻文档 - 专注技术教程的个人文档网站`、`/favicon.svg`。
 - 初始化 `security_settings`：失败 5 次锁定 15 分钟，会话 7 天。
-- 分类和文章可以通过导入脚本写入，不建议把演示数据混入生产迁移。
+- 分类和文章通过管理端或受控导入脚本写入，生产迁移不包含演示数据。
