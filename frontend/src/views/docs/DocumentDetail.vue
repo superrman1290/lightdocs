@@ -1,7 +1,7 @@
 <template>
   <div class="docs-page" :class="{ 'dark-mode': isDarkMode }">
     <header class="docs-header">
-      <RouterLink to="/docs/vue-3-project-guide" class="docs-brand">
+      <RouterLink to="/docs" class="docs-brand">
         <span class="brand-mark"><img :src="siteSettings.logoUrl" :alt="siteSettings.siteName" /></span>
         <strong>{{ siteSettings.siteName }}</strong>
         <span class="brand-subtitle">LightDoc</span>
