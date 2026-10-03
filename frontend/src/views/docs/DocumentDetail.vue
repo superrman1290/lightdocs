@@ -84,45 +84,9 @@ type ContentBlock = { id: string; type: 'heading'; level: number; text: string }
 
 const route = useRoute(); const router = useRouter(); const article = ref<Article | null>(null); const loading = ref(true); const searchKeyword = ref(''); const isDarkMode = ref(false); const copiedCode = ref(''); const categories = ref<Awaited<ReturnType<typeof categoryService.getCategories>>>([]); const navigationArticles = ref<Article[]>([]); const expandedGroups = reactive(new Set<number>())
 const categoryGroups = computed<CategoryGroup[]>(() => categories.value.filter(category => category.parentId === null).map(root => ({ id: root.id, name: root.name, children: navigationArticles.value.filter(article => article.categoryId === root.id).map(article => ({ id: article.id, slug: article.slug, title: article.title })) })))
-const fallbackMarkdown = (current: Article) => current.slug === 'docker-compose-guide' ? `## 一、准备环境
-
-本文介绍如何使用 Docker Compose 快速部署 Nginx。你只需要准备一台已经安装 Docker 的服务器。
-
-## 二、创建配置文件
-
-创建 \`docker-compose.yml\` 文件：
-
-\`\`\`yaml
-services:
-  nginx:
-    image: nginx:latest
-    ports:
-      - "80:80"
-    restart: unless-stopped
-\`\`\`
-
-## 三、启动服务
-
-执行下面的命令即可启动：
-
-\`\`\`bash
-docker compose up -d
-\`\`\`
-
-## 四、验证部署
-
-打开浏览器访问服务器地址，看到 Nginx 欢迎页面即表示部署完成。` : `## 一、文档概览
-
-${current.summary || '这是一篇 LightDocs 公开文档。'}
-
-## 二、正文内容
-
-${current.content.replace(/^#\s+.*$/m, '').trim() || '文档内容正在整理中。'}
-
-## 三、总结
-
-感谢阅读本文。`
-const blocks = computed<ContentBlock[]>(() => parseMarkdown(article.value ? fallbackMarkdown(article.value) : ''))
+// 游客页只展示管理员实际保存的正文，不再为文章拼接概览、正文内容
+// 和总结等演示文本。文章为空时保持空白，不使用 Mock 或兜底文章内容。
+const blocks = computed<ContentBlock[]>(() => parseMarkdown(article.value?.content ?? ''))
 const headings = computed(() => blocks.value.filter(block => block.type === 'heading') as Array<Extract<ContentBlock, { type: 'heading' }>>)
 const readingMinutes = computed(() => Math.max(1, Math.ceil(blocks.value.reduce((total, block) => total + (block.type === 'code' ? block.code.length : block.type === 'list' ? block.items.join('').length : block.type === 'heading' ? block.text.length : block.type === 'image' ? 100 : block.html.replace(/<[^>]+>/g, '').length), 0) / 420)))
 const loadArticle = async () => {
