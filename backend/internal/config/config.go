@@ -15,6 +15,7 @@ type Config struct {
 	RememberSessionDays    int
 	MaxUploadBytes         int64
 	MaxArticleContentBytes int64
+	UploadDirectory        string
 }
 
 func Load() Config {
@@ -27,6 +28,7 @@ func Load() Config {
 		RememberSessionDays:    intEnv("REMEMBER_SESSION_DAYS", 7),
 		MaxUploadBytes:         int64Env("MAX_UPLOAD_BYTES", 10*1024*1024),
 		MaxArticleContentBytes: int64Env("MAX_ARTICLE_CONTENT_BYTES", 2*1024*1024),
+		UploadDirectory:        env("UPLOAD_DIRECTORY", "uploads"),
 	}
 }
 

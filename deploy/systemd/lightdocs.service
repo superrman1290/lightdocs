@@ -1,0 +1,23 @@
+[Unit]
+Description=LightDocs Go API
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=lightdocs
+Group=lightdocs
+WorkingDirectory=/opt/lightdocs/current/backend
+EnvironmentFile=/etc/lightdocs/lightdocs.env
+ExecStart=/opt/lightdocs/current/backend/lightdocs-server
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/lightdocs/uploads
+
+[Install]
+WantedBy=multi-user.target

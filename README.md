@@ -31,6 +31,9 @@ npm run build
 
 ## 部署与启动
 
+本地 Windows 开发步骤保留在本节。Linux 生产服务器请使用完整的
+[Linux 部署指南](./docs/linux-deployment.md)，其中包含 Nginx、systemd、HTTPS、备份和恢复配置。
+
 ### 1. 环境要求
 
 - Docker Desktop（用于运行 PostgreSQL 16）
@@ -76,7 +79,7 @@ $env:DATABASE_URL="postgres://lightdocs:change-this-password@localhost:5432/ligh
 
 ```powershell
 cd backend
-go run ./cmd/migrate -schema ../db/schema.sql
+go run ./cmd/migrate
 ```
 
 后续数据库结构变更应使用独立迁移脚本；不要在已有生产数据库上反复执行完整建表脚本。
@@ -166,6 +169,7 @@ docker compose down
 
 ## 后端设计文档
 
+- [Linux 生产部署指南](./docs/linux-deployment.md)
 - [接口文档](./docs/backend-api.md)
 - [数据库设计](./docs/database-design.md)
 - [数据库建表脚本](./db/schema.sql)

@@ -44,7 +44,7 @@ func New(cfg config.Config, db *pgxpool.Pool) *API {
 		Auth:                   &auth.Service{DB: db, AccessTokenTTL: time.Duration(cfg.AccessTokenTTLMin) * time.Minute, RememberSessionDays: cfg.RememberSessionDays},
 		MaxUploadBytes:         cfg.MaxUploadBytes,
 		MaxArticleContentBytes: cfg.MaxArticleContentBytes,
-		UploadDirectory:        "uploads",
+		UploadDirectory:        cfg.UploadDirectory,
 	}
 }
 

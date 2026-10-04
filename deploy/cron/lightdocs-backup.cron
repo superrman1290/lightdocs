@@ -1,0 +1,2 @@
+# Daily PostgreSQL backup at 02:30 UTC. Install with: crontab deploy/cron/lightdocs-backup.cron
+30 2 * * * /opt/lightdocs/current/deploy/scripts/backup-postgres.sh >> /var/log/lightdocs-backup.log 2>&1

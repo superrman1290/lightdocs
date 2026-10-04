@@ -1,4 +1,5 @@
-const baseURL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8080/api/v1'
+const baseURL = import.meta.env.VITE_API_URL
+  || (import.meta.env.PROD ? '/api/v1' : 'http://127.0.0.1:8080/api/v1')
 export const apiBaseURL = baseURL
 
 export const resolveApiURL = (value: string) => {
