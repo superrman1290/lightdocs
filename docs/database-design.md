@@ -6,7 +6,7 @@
 
 ## 1. 设计原则
 
-- 业务主键使用 `bigint generated always as identity`，会话、回收站和重新验证凭证记录使用 UUID。
+- 业务主键使用 `bigint generated always as identity`，会话、回收站和重新验证凭证记录使用 UUID；数据库迁移版本记录在 `schema_migrations`。
 - 登录采用不透明随机 access token，数据库只保存 token 哈希；JWT 暂不作为第一版会话实现。
 - 所有业务表使用 `timestamptz`，由数据库保存 UTC 时间。
 - 密码只保存 Argon2id/bcrypt 哈希；`/settings/admin` 接口永远不返回哈希。
@@ -122,7 +122,7 @@ site_settings 1 ───── 1 security_settings
 | 字段 | 类型 | 约束 | 说明 |
 | --- | --- | --- | --- |
 | `id` | bigint | PK | 文章 ID |
-| `title` | varchar(200) | NOT NULL | 标题 |
+| `title` | varchar(200) | NOT NULL | 标题；活动文章不区分大小写唯一 |
 | `slug` | varchar(160) | UNIQUE NOT NULL | 公开 URL 标识 |
 | `category_id` | bigint | FK categories | 所属分类 |
 | `status` | varchar(20) | NOT NULL | `draft` / `published` |
@@ -133,10 +133,10 @@ site_settings 1 ───── 1 security_settings
 | `created_by` / `updated_by` | bigint | FK users | 操作人 |
 | `deleted_at` | timestamptz | NULL | 软删除时间 |
 | `deleted_by` | bigint | FK users | 删除人 |
-| `search_vector` | tsvector | GENERATED | 全文搜索向量 |
+| `search_vector` | tsvector | NULL | 由触发器维护的全文搜索向量 |
 | `created_at` / `updated_at` | timestamptz | NOT NULL | 审计时间 |
 
-`category` 名称不单独落库，接口查询通过 JOIN 得到，避免分类改名后出现脏数据。软删除文章不参与公开列表、后台列表和 active slug 唯一性校验。
+`category` 名称不单独落库，接口查询通过 JOIN 得到，避免分类改名后出现脏数据。软删除文章不参与公开列表、后台列表、活动标题唯一性和 active slug 唯一性校验。
 
 ### 3.7 `images` 图片资源
 
@@ -196,15 +196,27 @@ site_settings 1 ───── 1 security_settings
 
 密码、token、完整 Markdown 正文不得写入审计 `payload`。
 
+### 3.11 `schema_migrations` 数据库迁移记录
+
+| 字段 | 类型 | 约束 | 说明 |
+| --- | --- | --- | --- |
+| `version` | text | PK | 初始版本或迁移文件名 |
+| `applied_at` | timestamptz | NOT NULL | 执行时间 |
+
+迁移工具首次运行空数据库时执行 `db/schema.sql`，记录版本
+`000_initial_schema`；已有数据库会先记录该基线，随后只执行
+`db/migrations/` 中尚未记录的 SQL 文件。已执行的迁移不可修改。
+
 ## 4. 索引设计
 
-1. `articles`: active 数据上的 `(status, updated_at DESC)`、`(category_id, status, updated_at DESC)`、`slug` partial unique 索引。
+1. `articles`: active 数据上的 `(status, updated_at DESC)`、`(category_id, status, updated_at DESC)`、`slug` partial unique 索引和 `lower(btrim(title))` partial unique 索引。
 2. `articles`: `GIN(tags)`；启用 `pg_trgm` 后对 `title`、`summary`、`slug` 建 trigram 索引；对 `search_vector` 建 GIN 全文索引。
 3. `categories`: `parent_id, sort_order, id`；同一父级下名称大小写不敏感唯一。
 4. `images`: `(source, created_at DESC)`、`created_at DESC`、`name gin_trgm_ops`。
 5. `recycle_bin`: `(item_type, deleted_at DESC)`、`deleted_at DESC`，`snapshot` 不直接建立全文索引。
 6. `auth_sessions`: `user_id, revoked_at, expires_at`，并对 `token_hash` 建唯一索引。
 7. `article_images`: `(image_id, article_id)` 反向索引，用于图片引用查询和删除保护。
+8. `schema_migrations`: `version` 主键，保证每个版本化迁移只执行一次。
 
 ## 5. 关键事务
 

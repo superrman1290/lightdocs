@@ -80,7 +80,7 @@
 }
 ```
 
-`status` 取值：`draft`（草稿）或 `published`（已发布）。`slug` 全局唯一，只允许小写字母、数字和连字符。
+`status` 取值：`draft`（草稿）或 `published`（已发布）。活动文章的 `title` 不区分大小写且必须唯一；`slug` 也必须全局唯一，只允许小写字母、数字和连字符。软删除文章不参与这两项唯一性校验。
 
 #### 分类 `Category`
 
@@ -261,13 +261,13 @@ X-Reauth-Token: <reauth_token>
 }
 ```
 
-校验：标题、slug、分类必填；slug 唯一；标签去重并限制单个标签最多 8 个字符；正文默认最多 2 MiB，可通过 `MAX_ARTICLE_CONTENT_BYTES` 配置。成功返回创建后的完整 `Article`。
+校验：标题、slug、分类必填；活动文章标题不区分大小写且不可重复；slug 唯一；标签去重并限制单个标签最多 8 个字符；正文默认最多 2 MiB，可通过 `MAX_ARTICLE_CONTENT_BYTES` 配置。成功返回创建后的完整 `Article`。
 
 ### 4.4 更新文章
 
 `PATCH /articles/:id`
 
-请求字段与新建相同，全部可选，只更新提交字段。修改分类时同步返回新的 `category` 名称。若文章从草稿变为已发布，服务端写入 `publishedAt`；从已发布改为草稿时清空 `publishedAt`。
+请求字段与新建相同，全部可选，只更新提交字段。修改标题或 slug 时仍执行活动文章唯一性校验；修改分类时同步返回新的 `category` 名称。若文章从草稿变为已发布，服务端写入 `publishedAt`；从已发布改为草稿时清空 `publishedAt`。
 
 ### 4.5 删除文章（移入回收站）
 
@@ -423,7 +423,7 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 
 `DELETE /recycle-bin/:id`：永久删除单条。若目标是仍被 `article_images` 引用的图片，返回 `40902`，必须先永久删除引用文章或移除文章中的图片引用。
 
-`DELETE /recycle-bin?ids=article-1-1727685120000,image-2-1727685120001`
+`DELETE /recycle-bin?ids=<uuid1>,<uuid2>`
 
 批量永久删除必须显式提供 `ids`；不提供 `ids` 时返回 `40000`，接口不支持清空整个回收站。
 
