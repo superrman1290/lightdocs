@@ -224,9 +224,25 @@ func (a *API) validateArticleContent(content string) error {
 	return nil
 }
 
-func isUniqueViolation(err error) bool {
+func uniqueConstraintName(err error) string {
 	pgErr, ok := err.(*pgconn.PgError)
-	return ok && pgErr.Code == "23505"
+	if !ok || pgErr.Code != "23505" {
+		return ""
+	}
+	return pgErr.ConstraintName
+}
+
+func reportArticleUniqueViolation(c *gin.Context, err error) bool {
+	switch uniqueConstraintName(err) {
+	case "uq_articles_title_active":
+		httpx.Error(c, 409, 40904, "文章标题已存在，请使用不同的标题")
+		return true
+	case "uq_articles_slug_active":
+		httpx.Error(c, 409, 40905, "文章 slug 已存在，请修改 slug")
+		return true
+	default:
+		return false
+	}
 }
 
 var allowedImageMIMEs = map[string]struct{}{
@@ -419,8 +435,7 @@ func (a *API) createArticle(c *gin.Context) {
 		err = tx.Commit(c)
 	}
 	if err != nil {
-		if isUniqueViolation(err) {
-			httpx.Error(c, 409, 40904, "文章标题对应的 slug 已存在，请修改标题或 slug")
+		if reportArticleUniqueViolation(c, err) {
 			return
 		}
 		httpx.Error(c, 422, 42200, "创建文章失败")
@@ -480,8 +495,7 @@ func (a *API) updateArticle(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		if isUniqueViolation(err) {
-			httpx.Error(c, 409, 40904, "文章标题对应的 slug 已存在，请修改标题或 slug")
+		if reportArticleUniqueViolation(c, err) {
 			return
 		}
 		httpx.Error(c, 422, 42200, "更新文章失败")

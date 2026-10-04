@@ -360,7 +360,6 @@ const handleBack = async () => {
 
 const generateSlug = (
   title: string,
-  unique = false,
 ) => {
   const slug = title
     .trim()
@@ -372,14 +371,7 @@ const generateSlug = (
     )
 
   if (slug) {
-    if (!unique) {
-      return slug
-    }
-
-    const suffix = globalThis.crypto?.randomUUID?.().slice(0, 8)
-      ?? Date.now().toString(36)
-
-    return `${slug}-${suffix}`
+    return slug
   }
 
   const suffix = globalThis.crypto?.randomUUID?.().slice(0, 8)
@@ -416,7 +408,7 @@ const handleSaveDraft = async () => {
      * 根据标题自动生成。
      */
     if (!form.slug.trim()) {
-      form.slug = generateSlug(form.title, !isEditMode.value)
+      form.slug = generateSlug(form.title)
     }
 
     /**
@@ -538,7 +530,7 @@ const handlePublish = async () => {
      * 自动生成 Slug
      */
     if (!form.slug.trim()) {
-      form.slug = generateSlug(form.title, !isEditMode.value)
+      form.slug = generateSlug(form.title)
     }
 
     /**

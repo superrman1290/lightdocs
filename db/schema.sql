@@ -147,6 +147,10 @@ CREATE UNIQUE INDEX uq_articles_slug_active
   ON articles (slug)
   WHERE deleted_at IS NULL;
 
+CREATE UNIQUE INDEX uq_articles_title_active
+  ON articles (lower(btrim(title)))
+  WHERE deleted_at IS NULL;
+
 CREATE INDEX idx_articles_status_updated
   ON articles (status, updated_at DESC)
   WHERE deleted_at IS NULL;
