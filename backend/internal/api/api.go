@@ -95,7 +95,6 @@ func (a *API) Router(origins []string) *gin.Engine {
 	protected.GET("/recycle-bin", a.listRecycle)
 	protected.PATCH("/recycle-bin/:id", a.updateRecycle)
 	protected.DELETE("/recycle-bin/:id", a.deleteRecycle)
-	protected.DELETE("/recycle-bin", a.clearRecycle)
 
 	protected.GET("/settings/site", a.siteSettings)
 	protected.PATCH("/settings/site", a.updateSiteSettings)
@@ -893,98 +892,6 @@ func (a *API) deleteRecycle(c *gin.Context) {
 	}
 	httpx.NoContent(c)
 }
-func (a *API) clearRecycle(c *gin.Context) {
-	if rawIDs := strings.TrimSpace(c.Query("ids")); rawIDs != "" {
-		for _, raw := range strings.Split(rawIDs, ",") {
-			id, err := uuid.Parse(strings.TrimSpace(raw))
-			if err != nil {
-				httpx.Error(c, 400, 40000, "回收站 ID 无效")
-				return
-			}
-			if err := a.deleteRecycleRecord(c, id); err != nil {
-				httpx.Error(c, 409, 40902, err.Error())
-				return
-			}
-		}
-		httpx.NoContent(c)
-		return
-	}
-	tx, err := a.DB.Begin(c)
-	if err != nil {
-		httpx.Error(c, 500, 50000, "清空回收站失败")
-		return
-	}
-	defer tx.Rollback(c)
-	ids := strings.Split(strings.TrimSpace(c.Query("ids")), ",")
-	query := `SELECT id, item_type, item_id FROM recycle_bin`
-	args := []any{}
-	if len(ids) > 0 && ids[0] != "" {
-		parsed := make([]uuid.UUID, 0, len(ids))
-		for _, raw := range ids {
-			parsedID, parseErr := uuid.Parse(strings.TrimSpace(raw))
-			if parseErr != nil {
-				httpx.Error(c, 400, 40000, "回收站 ID 无效")
-				return
-			}
-			parsed = append(parsed, parsedID)
-		}
-		query = `SELECT id, item_type, item_id FROM recycle_bin WHERE id = ANY($1)`
-		args = append(args, parsed)
-	}
-	rows, err := tx.Query(c, query, args...)
-	if err != nil {
-		httpx.Error(c, 500, 50000, "清空回收站失败")
-		return
-	}
-	blocked := 0
-	for rows.Next() {
-		var recycleID uuid.UUID
-		var itemType string
-		var itemID int64
-		if err := rows.Scan(&recycleID, &itemType, &itemID); err != nil {
-			rows.Close()
-			httpx.Error(c, 500, 50000, "清空回收站失败")
-			return
-		}
-		table := map[string]string{"article": "articles", "image": "images"}[itemType]
-		if table == "" {
-			continue
-		}
-		if itemType == "image" {
-			var referenced bool
-			if err := tx.QueryRow(c, `SELECT EXISTS (SELECT 1 FROM article_images WHERE image_id=$1)`, itemID).Scan(&referenced); err != nil {
-				rows.Close()
-				httpx.Error(c, 500, 50000, "清空回收站失败")
-				return
-			}
-			if referenced {
-				blocked++
-				continue
-			}
-		}
-		if _, err := tx.Exec(c, "DELETE FROM "+table+" WHERE id=$1", itemID); err != nil {
-			rows.Close()
-			httpx.Error(c, 409, 40902, "存在资源引用，无法清空回收站")
-			return
-		}
-		if _, err := tx.Exec(c, `DELETE FROM recycle_bin WHERE id=$1`, recycleID); err != nil {
-			rows.Close()
-			httpx.Error(c, 500, 50000, "清空回收站失败")
-			return
-		}
-	}
-	rows.Close()
-	if err := tx.Commit(c); err != nil {
-		httpx.Error(c, 500, 50000, "清空回收站失败")
-		return
-	}
-	if blocked > 0 {
-		httpx.Error(c, 409, 40902, fmt.Sprintf("已清除可删除项目，仍有 %d 个图片项目被文章引用", blocked))
-		return
-	}
-	httpx.NoContent(c)
-}
-
 func (a *API) deleteRecycleRecord(c *gin.Context, id uuid.UUID) error {
 	var itemType string
 	var itemID int64

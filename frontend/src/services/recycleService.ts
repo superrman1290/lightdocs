@@ -18,13 +18,8 @@ const deletePermanently = async (ids: string[]): Promise<void> => {
   await request<void>(`/recycle-bin?ids=${ids.join(',')}`, { method: 'DELETE' })
 }
 
-const clear = async (): Promise<void> => {
-  await request<void>('/recycle-bin', { method: 'DELETE' })
-}
-
 export const recycleService = {
   getItems,
   restoreItem,
   deletePermanently,
-  clear,
 }

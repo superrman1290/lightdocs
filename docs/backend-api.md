@@ -425,8 +425,6 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 
 `DELETE /recycle-bin?ids=article-1-1727685120000,image-2-1727685120001`
 
-`DELETE /recycle-bin`：清空回收站。可删除的项目会先被永久删除；仍被 `article_images` 引用的图片会保留，并返回 `40902` 及剩余数量；该操作不可恢复，建议服务端要求二次确认标记 `X-Confirm-Destructive: true`，并记录审计日志。
-
 ## 9. 站点与安全设置
 
 ### 9.1 获取站点设置
@@ -518,7 +516,7 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 1. 登录接口按 IP + 账号限流，建议每分钟最多 10 次失败请求。
 2. Access Token 建议使用短期 JWT（15–30 分钟）或随机不透明令牌；服务端必须保存会话撤销状态。
 3. CORS 只允许配置的前端域名，生产环境必须使用 HTTPS。
-4. 所有写操作记录 `created_by`、`updated_by` 或审计日志；永久删除、清空回收站、修改密码必须重点记录。
+4. 所有写操作记录 `created_by`、`updated_by` 或审计日志；永久删除和修改密码必须重点记录。
 5. 上传文件使用不可预测的存储名，禁止把用户文件名直接拼接到路径；SVG 文件应做脚本清理或禁止外部脚本。
 6. Markdown 渲染到 HTML 时做 XSS 过滤，禁止直接信任文章正文中的原始 HTML。
 

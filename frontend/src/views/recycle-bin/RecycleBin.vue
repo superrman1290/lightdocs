@@ -46,14 +46,6 @@
             </template>
           </el-input>
 
-          <el-button
-            type="danger"
-            plain
-            :icon="Delete"
-            @click="handleClear"
-          >
-            清空回收站
-          </el-button>
         </div>
       </div>
 
@@ -465,35 +457,6 @@ const handleBatchDelete = async () => {
     if (error !== 'cancel' && error !== 'close') {
       console.error('批量永久删除失败：', error)
       ElMessage.error('批量永久删除失败')
-    }
-  }
-}
-
-const handleClear = async () => {
-  if (items.value.length === 0) {
-    ElMessage.info('回收站已经为空')
-    return
-  }
-
-  try {
-    await ElMessageBox.confirm(
-      '清空后所有项目都将永久删除，确定继续吗？',
-      '清空回收站',
-      {
-        confirmButtonText: '清空',
-        cancelButtonText: '取消',
-        type: 'warning',
-      },
-    )
-
-    await recycleService.clear()
-    ElMessage.success('回收站已清空')
-    await loadItems()
-  } catch (error) {
-    if (error !== 'cancel' && error !== 'close') {
-      console.error('清空回收站失败：', error)
-      await loadItems()
-      ElMessage.error(error instanceof Error && error.message ? error.message : '清空回收站失败')
     }
   }
 }
