@@ -383,7 +383,7 @@ const emit = defineEmits<{
 
 const mode = ref<'visual' | 'markdown'>('visual')
 
-const markdownContent = ref(props.modelValue || '')
+const markdownContent = ref(normalizeMarkdownForEditor(props.modelValue || ''))
 
 /**
  * 文章正文统一保存为 Markdown。图片可能来自旧数据中的相对路径，
@@ -395,6 +395,42 @@ const normalizeMarkdownImageSources = (markdown: string) => {
     /(!\[[^\]]*\]\()([^\s)]+)(\))/g,
     (_match, prefix: string, source: string, suffix: string) => `${prefix}${resolveApiURL(source)}${suffix}`,
   )
+}
+
+/**
+ * Markdown treats a tab or four leading spaces as an indented code block.
+ * Content pasted from office/chat applications often contains that indentation
+ * even though it is ordinary prose. Remove that accidental indentation while
+ * preserving explicitly fenced code blocks.
+ */
+function normalizeMarkdownForEditor(markdown: string) {
+  const lines = markdown.split('\n')
+  let inFence = false
+  return lines.map(line => {
+    const trimmed = line.trimStart()
+    if (/^```/.test(trimmed) || /^~~~/.test(trimmed)) {
+      inFence = !inFence
+      return line
+    }
+    if (inFence) {
+      return line
+    }
+    return line.replace(/^\t+/, '').replace(/^ {4,}/, '')
+  }).join('\n')
+}
+
+// Older saves could contain an unlabeled fence created by the accidental
+// indentation conversion. Unwrap only prose/list-like blocks; language-tagged
+// and code-looking fences remain untouched.
+function removeAccidentalProseFences(markdown: string) {
+  return markdown.replace(/^```\s*\n([\s\S]*?)\n```\s*$/gm, (_match, body: string) => {
+    const prose = /(^|\n)\s*(?:\d+[.、)]|[-*]\s+|[\u4e00-\u9fff])/.test(body)
+    return prose ? body : _match
+  })
+}
+
+function prepareMarkdownForEditor(markdown: string) {
+  return normalizeMarkdownForEditor(removeAccidentalProseFences(markdown))
 }
 
 /* =========================
@@ -441,7 +477,7 @@ let imageSelectionPosition: number | null = null
 const editor = new Editor({
   editable: !props.readonly,
 
-  content: normalizeMarkdownImageSources(props.modelValue || ''),
+  content: prepareMarkdownForEditor(normalizeMarkdownImageSources(props.modelValue || '')),
 
   // Article content is stored as Markdown. Without this option, the initial
   // edit view treats ![](url) as literal text instead of an image node.
@@ -511,7 +547,7 @@ const editor = new Editor({
       return
     }
 
-    const markdown = editor.getMarkdown()
+    const markdown = prepareMarkdownForEditor(editor.getMarkdown())
 
     markdownContent.value = markdown
 
@@ -785,7 +821,7 @@ function switchToMarkdown() {
     return
   }
 
-  markdownContent.value = editor.getMarkdown()
+  markdownContent.value = prepareMarkdownForEditor(editor.getMarkdown())
 
   mode.value = 'markdown'
 }
@@ -799,7 +835,7 @@ function switchToVisual() {
 
   nextTick(() => {
     editor.commands.setContent(
-      normalizeMarkdownImageSources(markdownContent.value || ''),
+      prepareMarkdownForEditor(normalizeMarkdownImageSources(markdownContent.value || '')),
       {
         contentType: 'markdown',
         emitUpdate: false,
@@ -837,7 +873,7 @@ watch(
     }
 
     editor.commands.setContent(
-      normalizeMarkdownImageSources(markdownContent.value),
+      prepareMarkdownForEditor(normalizeMarkdownImageSources(markdownContent.value)),
       {
         contentType: 'markdown',
         emitUpdate: false,
@@ -853,6 +889,11 @@ watch(
 ========================= */
 
 onMounted(() => {
+  const normalized = prepareMarkdownForEditor(props.modelValue || '')
+  markdownContent.value = normalized
+  if (normalized !== props.modelValue) {
+    emit('update:modelValue', normalized)
+  }
   updateToc()
 })
 
@@ -871,7 +912,7 @@ defineExpose({
 
   switchToMarkdown,
 
-  getMarkdown: () => editor.getMarkdown(),
+  getMarkdown: () => prepareMarkdownForEditor(editor.getMarkdown()),
 
   updateToc,
 
