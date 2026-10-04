@@ -485,7 +485,9 @@ const handleSaveDraft = async () => {
     )
 
     ElMessage.error(
-      '保存草稿失败',
+      error instanceof Error && error.message
+        ? `保存草稿失败：${error.message}`
+        : '保存草稿失败',
     )
   } finally {
     saving.value = false
@@ -618,7 +620,9 @@ const handlePublish = async () => {
     )
 
     ElMessage.error(
-      '发布文章失败',
+      error instanceof Error && error.message
+        ? `发布文章失败：${error.message}`
+        : '发布文章失败',
     )
   } finally {
     saving.value = false

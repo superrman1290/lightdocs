@@ -22,6 +22,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 
@@ -223,6 +224,11 @@ func (a *API) validateArticleContent(content string) error {
 	return nil
 }
 
+func isUniqueViolation(err error) bool {
+	pgErr, ok := err.(*pgconn.PgError)
+	return ok && pgErr.Code == "23505"
+}
+
 var allowedImageMIMEs = map[string]struct{}{
 	"image/jpeg":    {},
 	"image/png":     {},
@@ -413,6 +419,10 @@ func (a *API) createArticle(c *gin.Context) {
 		err = tx.Commit(c)
 	}
 	if err != nil {
+		if isUniqueViolation(err) {
+			httpx.Error(c, 409, 40904, "文章标题对应的 slug 已存在，请修改标题或 slug")
+			return
+		}
 		httpx.Error(c, 422, 42200, "创建文章失败")
 		return
 	}
@@ -470,6 +480,10 @@ func (a *API) updateArticle(c *gin.Context) {
 		return
 	}
 	if err != nil {
+		if isUniqueViolation(err) {
+			httpx.Error(c, 409, 40904, "文章标题对应的 slug 已存在，请修改标题或 slug")
+			return
+		}
 		httpx.Error(c, 422, 42200, "更新文章失败")
 		return
 	}
