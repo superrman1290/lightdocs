@@ -425,7 +425,7 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 
 `DELETE /recycle-bin?ids=article-1-1727685120000,image-2-1727685120001`
 
-`DELETE /recycle-bin`：清空回收站。若其中包含仍被 `article_images` 引用的图片，操作返回 `40902`，无法删除的图片记录会保留；该操作不可恢复，建议服务端要求二次确认标记 `X-Confirm-Destructive: true`，并记录审计日志。
+`DELETE /recycle-bin`：清空回收站。可删除的项目会先被永久删除；仍被 `article_images` 引用的图片会保留，并返回 `40902` 及剩余数量；该操作不可恢复，建议服务端要求二次确认标记 `X-Confirm-Destructive: true`，并记录审计日志。
 
 ## 9. 站点与安全设置
 

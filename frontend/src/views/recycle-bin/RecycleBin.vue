@@ -492,7 +492,8 @@ const handleClear = async () => {
   } catch (error) {
     if (error !== 'cancel' && error !== 'close') {
       console.error('清空回收站失败：', error)
-      ElMessage.error('清空回收站失败')
+      await loadItems()
+      ElMessage.error(error instanceof Error && error.message ? error.message : '清空回收站失败')
     }
   }
 }
