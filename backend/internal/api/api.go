@@ -178,21 +178,22 @@ func syncArticleImages(ctx context.Context, tx pgx.Tx, articleID int64, content 
 	if len(refs) == 0 {
 		return nil
 	}
-	rows, err := tx.Query(ctx, `SELECT id FROM images WHERE url = ANY($1::text[]) OR ('/uploads/' || storage_key) = ANY($1::text[])`, refs)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
+	for _, ref := range refs {
 		var imageID int64
-		if err := rows.Scan(&imageID); err != nil {
+		err := tx.QueryRow(ctx, `SELECT id FROM images WHERE url=$1 OR ('/uploads/' || storage_key)=$1`, ref).Scan(&imageID)
+		if err == pgx.ErrNoRows {
+			// A valid external or stale local URL does not prevent the article
+			// from being saved; it simply has no managed image relation.
+			continue
+		}
+		if err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO article_images(article_id,image_id) VALUES($1,$2) ON CONFLICT DO NOTHING`, articleID, imageID); err != nil {
 			return err
 		}
 	}
-	return rows.Err()
+	return nil
 }
 
 func normalizeAndValidateTags(tags []string) ([]string, error) {
