@@ -425,6 +425,8 @@ Content-Disposition: attachment; filename="vue-3-project-guide.md"
 
 `DELETE /recycle-bin?ids=article-1-1727685120000,image-2-1727685120001`
 
+批量永久删除必须显式提供 `ids`；不提供 `ids` 时返回 `40000`，接口不支持清空整个回收站。
+
 ## 9. 站点与安全设置
 
 ### 9.1 获取站点设置

@@ -95,6 +95,7 @@ func (a *API) Router(origins []string) *gin.Engine {
 	protected.GET("/recycle-bin", a.listRecycle)
 	protected.PATCH("/recycle-bin/:id", a.updateRecycle)
 	protected.DELETE("/recycle-bin/:id", a.deleteRecycle)
+	protected.DELETE("/recycle-bin", a.deleteRecycleBatch)
 
 	protected.GET("/settings/site", a.siteSettings)
 	protected.PATCH("/settings/site", a.updateSiteSettings)
@@ -892,6 +893,29 @@ func (a *API) deleteRecycle(c *gin.Context) {
 	}
 	httpx.NoContent(c)
 }
+
+// deleteRecycleBatch permanently deletes only the explicitly supplied IDs.
+// An empty ids query is rejected, so this endpoint cannot clear the whole bin.
+func (a *API) deleteRecycleBatch(c *gin.Context) {
+	rawIDs := strings.TrimSpace(c.Query("ids"))
+	if rawIDs == "" {
+		httpx.Error(c, 400, 40000, "ids 不能为空；不支持清空整个回收站")
+		return
+	}
+	for _, raw := range strings.Split(rawIDs, ",") {
+		id, err := uuid.Parse(strings.TrimSpace(raw))
+		if err != nil {
+			httpx.Error(c, 400, 40000, "回收站 ID 无效")
+			return
+		}
+		if err := a.deleteRecycleRecord(c, id); err != nil {
+			httpx.Error(c, 409, 40902, err.Error())
+			return
+		}
+	}
+	httpx.NoContent(c)
+}
+
 func (a *API) deleteRecycleRecord(c *gin.Context, id uuid.UUID) error {
 	var itemType string
 	var itemID int64
