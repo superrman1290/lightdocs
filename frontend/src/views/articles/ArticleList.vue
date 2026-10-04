@@ -165,21 +165,23 @@
 
           <template #default="{ row }">
 
-            <el-tag
-              v-if="row.status === 'published'"
-              type="success"
+            <el-select
+              :model-value="row.status"
               size="small"
+              class="status-select"
+              :loading="updatingStatusIds.has(row.id)"
+              @click.stop
+              @change="handleArticleStatusChange(row, $event)"
             >
-              已发布
-            </el-tag>
-
-            <el-tag
-              v-else
-              type="warning"
-              size="small"
-            >
-              草稿
-            </el-tag>
+              <el-option
+                label="已发布"
+                value="published"
+              />
+              <el-option
+                label="草稿"
+                value="draft"
+              />
+            </el-select>
 
           </template>
 
@@ -366,6 +368,7 @@ import {
  */
 import type {
   Article,
+  ArticleStatus,
 } from '../../types/article'
 
 import type {
@@ -445,6 +448,7 @@ const currentPage = ref(1)
  * 每页数量
  */
 const pageSize = ref(10)
+const updatingStatusIds = ref(new Set<number>())
 
 
 /* =====================================================
@@ -593,6 +597,27 @@ const handleStatusChange = async () => {
 
   await loadArticles()
 
+}
+
+const handleArticleStatusChange = async (
+  article: Article,
+  status: ArticleStatus,
+) => {
+  const previousStatus = article.status
+  if (status === previousStatus) return
+
+  updatingStatusIds.value.add(article.id)
+  try {
+    const updated = await articleService.updateArticle(article.id, { status })
+    Object.assign(article, updated)
+    ElMessage.success(status === 'published' ? '文章已发布' : '文章已设为草稿')
+  } catch (error) {
+    article.status = previousStatus
+    console.error('更新文章状态失败：', error)
+    ElMessage.error(error instanceof Error && error.message ? error.message : '更新文章状态失败')
+  } finally {
+    updatingStatusIds.value.delete(article.id)
+  }
 }
 
 
@@ -860,6 +885,10 @@ onBeforeUnmount(() => {
 
 .article-list {
   width: 100%;
+}
+
+.status-select {
+  width: 88px;
 }
 
 
