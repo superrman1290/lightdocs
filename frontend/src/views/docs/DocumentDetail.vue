@@ -58,8 +58,9 @@
               <h3 v-else-if="block.type === 'heading'" :id="block.id">{{ block.text }}</h3>
               <img v-else-if="block.type === 'image'" class="article-image" :src="block.src" :alt="block.alt" />
               <p v-else-if="block.type === 'paragraph'" v-html="block.html" />
-              <ul v-else-if="block.type === 'list'"><li v-for="item in block.items" :key="item">{{ item }}</li></ul>
-              <div v-else class="code-block"><div class="code-header"><span>{{ block.language || 'text' }}</span><button @click="copyCode(block.id, block.code)"><Check v-if="copiedCode === block.id" :size="14" /><DocumentCopy v-else :size="14" />{{ copiedCode === block.id ? '已复制' : '复制' }}</button></div><pre><code>{{ block.code }}</code></pre></div>
+              <ol v-else-if="block.type === 'ordered-list'"><li v-for="item in block.items" :key="item" v-html="item" /></ol>
+              <ul v-else-if="block.type === 'list'"><li v-for="item in block.items" :key="item" v-html="item" /></ul>
+              <div v-else-if="block.type === 'code'" class="code-block"><div class="code-header"><span>{{ block.language || 'text' }}</span><button @click="copyCode(block.id, block.code)"><Check v-if="copiedCode === block.id" :size="14" /><DocumentCopy v-else :size="14" />{{ copiedCode === block.id ? '已复制' : '复制' }}</button></div><pre><code>{{ block.code }}</code></pre></div>
             </template>
           </div>
         </article>
@@ -80,7 +81,7 @@ import { loadSiteSettings, siteSettings } from '../../stores/siteSettings'
 import type { Article, ArticlePageResult } from '../../types/article'
 
 interface CategoryGroup { id: number; name: string; children: Array<{ id: number; slug: string; title: string }> }
-type ContentBlock = { id: string; type: 'heading'; level: number; text: string } | { id: string; type: 'paragraph'; html: string } | { id: string; type: 'image'; src: string; alt: string } | { id: string; type: 'list'; items: string[] } | { id: string; type: 'code'; language: string; code: string }
+type ContentBlock = { id: string; type: 'heading'; level: number; text: string } | { id: string; type: 'paragraph'; html: string } | { id: string; type: 'image'; src: string; alt: string } | { id: string; type: 'list' | 'ordered-list'; items: string[] } | { id: string; type: 'code'; language: string; code: string }
 
 const route = useRoute(); const router = useRouter(); const article = ref<Article | null>(null); const loading = ref(true); const searchKeyword = ref(''); const isDarkMode = ref(false); const copiedCode = ref(''); const categories = ref<Awaited<ReturnType<typeof categoryService.getCategories>>>([]); const navigationArticles = ref<Article[]>([]); const expandedGroups = reactive(new Set<number>())
 const categoryGroups = computed<CategoryGroup[]>(() => categories.value.filter(category => category.parentId === null).map(root => ({ id: root.id, name: root.name, children: navigationArticles.value.filter(article => article.categoryId === root.id).map(article => ({ id: article.id, slug: article.slug, title: article.title })) })))
@@ -88,7 +89,7 @@ const categoryGroups = computed<CategoryGroup[]>(() => categories.value.filter(c
 // 和总结等演示文本。文章为空时保持空白。
 const blocks = computed<ContentBlock[]>(() => parseMarkdown(article.value?.content ?? ''))
 const headings = computed(() => blocks.value.filter(block => block.type === 'heading') as Array<Extract<ContentBlock, { type: 'heading' }>>)
-const readingMinutes = computed(() => Math.max(1, Math.ceil(blocks.value.reduce((total, block) => total + (block.type === 'code' ? block.code.length : block.type === 'list' ? block.items.join('').length : block.type === 'heading' ? block.text.length : block.type === 'image' ? 100 : block.html.replace(/<[^>]+>/g, '').length), 0) / 420)))
+const readingMinutes = computed(() => Math.max(1, Math.ceil(blocks.value.reduce((total, block) => total + (block.type === 'code' ? block.code.length : (block.type === 'list' || block.type === 'ordered-list') ? block.items.join('').replace(/<[^>]+>/g, '').length : block.type === 'heading' ? block.text.length : block.type === 'image' ? 100 : block.type === 'paragraph' ? block.html.replace(/<[^>]+>/g, '').length : 0), 0) / 420)))
 const loadArticle = async () => {
   if (!route.params.slug) {
     article.value = null
@@ -105,13 +106,40 @@ const toggleTheme = () => { isDarkMode.value = !isDarkMode.value; document.docum
 const handleSearch = () => { const keyword = searchKeyword.value.trim(); if (keyword) router.push({ path: '/search', query: { keyword } }) }
 const formatDate = (value: string) => value.replace('T', ' ').slice(0, 10)
 const copyCode = async (id: string, code: string) => { await navigator.clipboard?.writeText(code); copiedCode.value = id; window.setTimeout(() => { copiedCode.value = '' }, 1400) }
-const escapeHtml = (value: string) => value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/`([^`]+)`/g, '<code>$1</code>')
+const escapeHtml = (value: string) => value
+  .replace(/&/g, '&amp;')
+  .replace(/</g, '&lt;')
+  .replace(/>/g, '&gt;')
+  .replace(/"/g, '&quot;')
+  .replace(/'/g, '&#39;')
+
+const inlineMarkdown = (value: string) => {
+  const unescaped = value.replace(/\\([\\[\]()_*#`])/g, '$1')
+  const links: string[] = []
+  const withPlaceholders = unescaped.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g, (full, label: string, href: string) => {
+    if (!/^(?:https?:\/\/|mailto:|\/uploads\/)/i.test(href)) {
+      return full
+    }
+    const resolvedHref = href.startsWith('/uploads/') ? resolveApiURL(href) : href
+    const index = links.push(`<a href="${escapeHtml(resolvedHref)}" target="_blank" rel="noopener noreferrer">${escapeHtml(label)}</a>`) - 1
+    return `@@LIGHTDOCS_LINK_${index}@@`
+  })
+  let html = escapeHtml(withPlaceholders)
+    .replace(/`([^`]+)`/g, '<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+    .replace(/(?<!\*)\*([^*]+)\*(?!\*)/g, '<em>$1</em>')
+  links.forEach((link, index) => {
+    html = html.replace(`@@LIGHTDOCS_LINK_${index}@@`, link)
+  })
+  return html
+}
+
 function parseMarkdown(markdown: string): ContentBlock[] {
   const lines = markdown.split('\n')
   const result: ContentBlock[] = []
   let index = 0
   let paragraph: string[] = []
-  const flush = () => { if (paragraph.length) { result.push({ id: `paragraph-${result.length}`, type: 'paragraph', html: escapeHtml(paragraph.join(' ')) }); paragraph = [] } }
+  const flush = () => { if (paragraph.length) { result.push({ id: `paragraph-${result.length}`, type: 'paragraph', html: inlineMarkdown(paragraph.join(' ')) }); paragraph = [] } }
   while (index < lines.length) {
     const line = lines[index]
     if (line.startsWith('```')) { flush(); const language = line.slice(3).trim() || 'text'; const codeLines: string[] = []; index += 1; while (index < lines.length && !lines[index].startsWith('```')) { codeLines.push(lines[index]); index += 1 }; result.push({ id: `code-${result.length}`, type: 'code', language, code: codeLines.join('\n') }); index += 1; continue }
@@ -119,7 +147,8 @@ function parseMarkdown(markdown: string): ContentBlock[] {
     if (heading) { flush(); result.push({ id: `heading-${result.length}`, type: 'heading', level: heading[1].length, text: heading[2] }); index += 1; continue }
     const image = /^!\[([^\]]*)\]\(([^)]+)\)$/.exec(line.trim())
     if (image) { flush(); result.push({ id: `image-${result.length}`, type: 'image', alt: image[1], src: resolveApiURL(image[2]) }); index += 1; continue }
-    if (/^[-*]\s+/.test(line)) { flush(); const items: string[] = []; while (index < lines.length && /^[-*]\s+/.test(lines[index])) { items.push(lines[index].replace(/^[-*]\s+/, '')); index += 1 }; result.push({ id: `list-${result.length}`, type: 'list', items }); continue }
+    if (/^\d+[.)]\s+/.test(line)) { flush(); const items: string[] = []; while (index < lines.length && /^\d+[.)]\s+/.test(lines[index])) { items.push(inlineMarkdown(lines[index].replace(/^\d+[.)]\s+/, ''))); index += 1 }; result.push({ id: `ordered-list-${result.length}`, type: 'ordered-list', items }); continue }
+    if (/^[-*]\s+/.test(line)) { flush(); const items: string[] = []; while (index < lines.length && /^[-*]\s+/.test(lines[index])) { items.push(inlineMarkdown(lines[index].replace(/^[-*]\s+/, ''))); index += 1 }; result.push({ id: `list-${result.length}`, type: 'list', items }); continue }
     if (!line.trim()) flush(); else paragraph.push(line.trim())
     index += 1
   }
